@@ -27,7 +27,7 @@
 #include <queue>
 #include <stdio.h>
 
-#include "..\\Dependencies\\json-develop\\single_include\\nlohmann\\json.hpp"
+#include "dependencies\nlohmann_json\single_include\\nlohmann\\json.hpp"
 
 // ---------- Error handling -------------------
 

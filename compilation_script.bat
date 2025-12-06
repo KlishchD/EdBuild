@@ -1,0 +1,1 @@
+clang main.cpp -o EdBuild.exe -std=c++26 -g -O3
