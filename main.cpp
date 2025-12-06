@@ -4,7 +4,7 @@ int32_t main(int32_t count, const char** arguments)
 {
   // clang++ -MM main.cpp
 
-  g_memory_report.activate();
+  builder_memory_report().activate();
 
   try
   {
@@ -17,7 +17,10 @@ int32_t main(int32_t count, const char** arguments)
     estd::log("\nActive platform: ");
     active_platform()->dump();
 
-    json_object instructions = read_json(strings::instructions_path);
+    estd::stack_string_512 instructions_path = g_cli_parameters.get_root_path();
+    instructions_path.append(strings::instructions_path);
+    estd::json instructions = estd::read_json(instructions_path);
+
     json_reader reader { instructions };
     
     compiler_input_parser parser;
@@ -57,14 +60,14 @@ int32_t main(int32_t count, const char** arguments)
     return 1;
   }
 
-  g_memory_report.deactivate();
+  builder_memory_report().deactivate();
 
   try
   {
     estd::log("\nMemory report:");
-    g_memory_report.dump();
+    builder_memory_report().dump();
 
-    g_memory_report.validate();
+    builder_memory_report().validate();
   }
   catch (const std::exception& error)
   {
