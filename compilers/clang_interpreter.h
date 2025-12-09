@@ -46,7 +46,7 @@ protected:
     subproject_suffixes.clear();
   }
 
-  virtual command_string compute_source_command(const source_view& view) override
+  virtual command_string compute_source_command(const source_view& view) const override
   {
 #pragma warning "Platform specific code"
     command_string result = "clang++ -c ";
@@ -60,7 +60,7 @@ protected:
     return result;
   }
 
-  virtual command_string compute_precompile_header_command(const precompile_header_view& view) override
+  virtual command_string compute_precompile_header_command(const precompile_header_view& view) const override
   {
 #pragma warning "Platform specific code"
     command_string result = "clang++ -c ";
@@ -73,7 +73,7 @@ protected:
     return result;
   }
 
-  virtual command_string compute_database_entry_command(const source_view& view) override
+  virtual command_string compute_database_entry_command(const source_view& view) const override
   {
 #pragma warning "Platform specific code"
     command_string output_path = get_output_path(view);
@@ -91,7 +91,7 @@ protected:
     return result;
   }
 
-  virtual command_string compute_database_entry_command(const precompile_header_view& view) override
+  virtual command_string compute_database_entry_command(const precompile_header_view& view) const override
   {
 #pragma warning "Platform specific code"
     command_string output_path = get_output_path(view);
@@ -110,79 +110,43 @@ protected:
     return result;
   }
 
-  virtual bool needs_recompilation(const precompile_header_view& view) override
+  virtual command_string compute_dependecies_list_update_command(const source_view& view) const override
   {
-#pragma warning "Platform specific code"
-    return needs_recompilation_internal(view, ".pch");
+    command_string command = "clang++ -MM ";
+    command.append(view.get_path());
+    command.append(project_suffix);
+    command.append(subproject_suffixes[view.subproject_index]);
+    command.append(" -MF ");
+    command.append(get_output_path(view));
+    command.append(".deps");
+    return command;
   }
 
-  virtual bool needs_recompilation(const source_view& view) override
+  virtual command_string compute_dependecies_list_update_command(const precompile_header_view& view) const override
   {
-#pragma warning "Platform specific code"
-    return needs_recompilation_internal(view, ".obj");
+    command_string command = "clang++ -MM ";
+    command.append(view.get_path());
+    command.append(project_suffix);
+    command.append(subproject_suffixes[view.subproject_index]);
+    command.append(" -MF ");
+    command.append(get_output_path(view));
+    command.append(".deps");
+    return command;
   }
 
-  template <typename view_type>
-  bool needs_recompilation_internal(const view_type& view, const char* extension)
+  virtual std::filesystem::file_time_type parse_update_time(const estd::stack_string_512& dependency_line) const override
   {
-    command_string dependencies_list_path = get_output_path(view);
-    dependencies_list_path.append(".deps");
+    std::size_t space_pre_word = dependency_line.find(' ');
+    if (space_pre_word == std::string::npos) return std::filesystem::file_time_type(std::filesystem::file_time_type::duration(0));
 
-    bool update_dependencies = false;
-    if (std::filesystem::exists(dependencies_list_path.c_str()))
-    {
-      auto dependency_update_time = std::filesystem::last_write_time(dependencies_list_path.c_str());
-      auto source_update_time = std::filesystem::last_write_time(view.get_path());
-      update_dependencies = dependency_update_time < source_update_time;
-    }
-    else
-    {
-      update_dependencies = true;
-    }
+    std::size_t word_start = dependency_line.find_first_of("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM", space_pre_word);
+    if (word_start == std::string::npos) return std::filesystem::file_time_type(std::filesystem::file_time_type::duration(0));
 
-    if (update_dependencies)
-    {
-      command_string command = "clang++ -MM ";
-      command.append(view.get_path());
-      command.append(project_suffix);
-      command.append(subproject_suffixes[view.subproject_index]);
-      command.append(" -MF ");
-      command.append(dependencies_list_path);
+    std::size_t word_end = dependency_line.find_first_of(" \n\0", word_start);
+    if (word_end == std::string::npos) word_end = dependency_line.size();
 
-      estd::shell<estd::stack_string_512> local_shell;
-      local_shell.run(command);
-    }
-
-    command_string target_path = get_output_path(view);
-    target_path.append(extension);
-
-    if (!std::filesystem::exists(target_path.c_str())) return true;
-    const auto compilation_time = std::filesystem::last_write_time(target_path.c_str());
-
-    std::ifstream file(dependencies_list_path.c_str(), std::ios_base::in);
-    estd::stack_string_512 line;
-
-    while (std::getline(file, line))
-    {
-      std::size_t space_pre_word = line.find(' ');
-      if (space_pre_word == std::string::npos) break;
-
-      std::size_t word_start = line.find_first_of("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM", space_pre_word);
-      if (word_start == std::string::npos) break;
-
-      std::size_t word_end = line.find_first_of(" \n\0", word_start);
-      if (word_end == std::string::npos) word_end = line.size();
-
-      std::string_view path_view(line.c_str() + word_start, line.c_str() + word_end);
-      const auto update_time = std::filesystem::last_write_time(path_view);
-      if (compilation_time < update_time) return true;
-
-      //estd::log("DEPDENCY: [{}].", path_view);
-    }
-
-    //estd::log("[{}] FILE: {}, {}", update_dependencies, view.get_path().c_str(), view.get_subproject_name().c_str());
-
-    return false;
+    std::string_view path_view(dependency_line.c_str() + word_start, dependency_line.c_str() + word_end);
+    return std::filesystem::last_write_time(path_view);
   }
 
   void extend_list(const option_description& option, command_string& list) const

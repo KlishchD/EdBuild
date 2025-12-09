@@ -78,12 +78,17 @@ struct project_configuration
   {
     std::size_t source_index;
 
-    const std::string& get_path() const
+    inline const char* extension() const
+    {
+      return ".obj";
+    }
+
+    inline const std::string& get_path() const
     {
       return project.subprojects[subproject_index].sources[source_index];
     }
 
-    bool has_precompiler_header() const
+    inline bool has_precompiler_header() const
     {
       return project.subprojects[subproject_index].has_precompile_header();
     }
@@ -91,12 +96,17 @@ struct project_configuration
 
   struct precompile_header_view : public resource_view
   {
-    const std::string& get_path() const
+    inline const char* extension() const
+    {
+      return ".pch";
+    }
+
+    inline const std::string& get_path() const
     {
       return project.subprojects[subproject_index].precompile_header;
     }
 
-    operator bool() const
+    inline operator bool() const
     {
       return project.subprojects[subproject_index].has_precompile_header();
     }

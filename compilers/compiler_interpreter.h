@@ -24,83 +24,138 @@ public:
       header_commands_count += subproject.has_precompile_header();
     }
 
-    commands_list source_commands, header_commands, database_entry_commands;
+    commands_list source_commands, header_commands;
     source_commands.reserve(source_commands_count);
     header_commands.reserve(header_commands_count);
+
+    commands_list database_entry_commands, dependencies_list_commands;
     database_entry_commands.reserve(source_commands_count + header_commands_count);
+    dependencies_list_commands.reserve(source_commands_count + header_commands_count);
+
+    for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
+    {
+      const auto& subproject = project.subprojects[subproject_index];
+      if (subproject.is_precompiled()) continue;
+
+      if (precompile_header_view view = project.get_precompile_header_view(subproject_index))
+      {
+        if (are_dependencies_outdated(view))
+        {
+          command_string update_command = compute_dependecies_list_update_command(view);
+          dependencies_list_commands.push_back(std::move(update_command));
+        }
+      }
+
+      for (std::size_t source_index = 0; source_index < subproject.sources.size(); ++source_index)
+      {
+        source_view view = project.get_source_view(subproject_index, source_index);
+        if (are_dependencies_outdated(view))
+        {
+          command_string update_command = compute_dependecies_list_update_command(view);
+          dependencies_list_commands.push_back(std::move(update_command));
+        }
+      }
+    }
+
+    estd::async_shell_execute<32>(dependencies_list_commands, g_cli_parameters.get_threads_count());
+
+    using source_filter_mask = std::vector<std::vector<bool>>;
+    using headers_filter_mask = std::vector<bool>;
+
+    source_filter_mask sources_filter(project.subprojects.size());
+    headers_filter_mask headers_filter(project.subprojects.size());
+
+    for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
+    {
+      const std::size_t sources_count = project.subprojects[subproject_index].sources.size();
+      sources_filter[subproject_index].resize(sources_count, false);
+    }
+
+    for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
+    {
+      const auto& subproject = project.subprojects[subproject_index];
+      if (subproject.is_precompiled()) continue;
+
+      if (precompile_header_view view = project.get_precompile_header_view(subproject_index))
+      {
+        headers_filter[subproject_index] = needs_recompilation(view);
+      }
+
+      for (std::size_t source_index = 0; source_index < subproject.sources.size(); ++source_index)
+      {
+        source_view view = project.get_source_view(subproject_index, source_index);
+        sources_filter[subproject_index][source_index] = needs_recompilation(view);
+      }
+    }
 
 #pragma warning "URVO"
     for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
     {
       const auto& subproject = project.subprojects[subproject_index];
       if (subproject.is_precompiled()) continue;
-
-      if (precompile_header_view view = project.get_precompile_header_view(subproject_index))
+    
+      if (precompile_header_view view = project.get_precompile_header_view(subproject_index); view && headers_filter[subproject_index])
       {
-        if (needs_recompilation(view))
-        {
-          command_string compilation_command = compute_precompile_header_command(view);
-          header_commands.push_back(std::move(compilation_command));
-
-          command_string database_entry_command = compute_database_entry_command(view);
-          database_entry_commands.push_back(std::move(database_entry_command));
-        }
+        command_string compilation_command = compute_precompile_header_command(view);
+        header_commands.push_back(std::move(compilation_command));
+    
+        command_string database_entry_command = compute_database_entry_command(view);
+        database_entry_commands.push_back(std::move(database_entry_command));
       }
-
+    
       const std::size_t sources_count = project.subprojects[subproject_index].sources.size();
       for (std::size_t source_index = 0; source_index < sources_count; ++source_index)
       {
+        if (!sources_filter[subproject_index][source_index]) continue;
+
         source_view view = project.get_source_view(subproject_index, source_index);
 
-        if (needs_recompilation(view))
-        {
-          command_string compilation_command = compute_source_command(view);
-          source_commands.push_back(std::move(compilation_command));
-
-          command_string database_entry_command = compute_database_entry_command(view);
-          database_entry_commands.push_back(std::move(database_entry_command));
-        }
+        command_string compilation_command = compute_source_command(view);
+        source_commands.push_back(std::move(compilation_command));
+    
+        command_string database_entry_command = compute_database_entry_command(view);
+        database_entry_commands.push_back(std::move(database_entry_command));
       }
     }
-
-    //estd::async_shell_execute<32>(header_commands, g_cli_parameters.get_threads_count());
-    //estd::async_shell_execute<32>(source_commands, g_cli_parameters.get_threads_count());
-    //estd::async_shell_execute<32>(database_entry_commands, g_cli_parameters.get_threads_count());
-
+ 
+    estd::async_shell_execute<32>(header_commands, g_cli_parameters.get_threads_count());
+    estd::async_shell_execute<32>(source_commands, g_cli_parameters.get_threads_count());
+    estd::async_shell_execute<32>(database_entry_commands, g_cli_parameters.get_threads_count());
+    
     std::string database;
-
+    
     constexpr std::size_t max_expected_entry_size = 2048;
     database.reserve((source_commands_count + header_commands_count) * max_expected_entry_size + 2);
-
+    
     database.append("[\n");
-
+    
     for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
     {
       const auto& subproject = project.subprojects[subproject_index];
       if (subproject.is_precompiled()) continue;
-
+    
       if (precompile_header_view view = project.get_precompile_header_view(subproject_index))
       {
         command_string database_entry_path = get_output_path(view);
         database_entry_path.append(".dbe");
-
+    
         if (std::filesystem::exists(database_entry_path.c_str()))
         {
           append_file_data(database_entry_path, database);
           database.push_back('\n');
         }
       }
-
+    
       const std::size_t sources_count = project.subprojects[subproject_index].sources.size();
       for (std::size_t source_index = 0; source_index < sources_count; ++source_index)
       {
         source_view view = project.get_source_view(subproject_index, source_index);
-
+    
         command_string database_entry_path = get_output_path(view);
         database_entry_path.append(".dbe");
-
+    
         //estd::log("ENTRY: {}.", database_entry_path.c_str());
-
+    
         if (std::filesystem::exists(database_entry_path.c_str()))
         {
           append_file_data(database_entry_path, database);
@@ -108,9 +163,9 @@ public:
         }
       }
     }
-
+    
     database.push_back(']');
-
+    
     command_string database_path = g_cli_parameters.get_intermediate_path();
     database_path.append("database.json");
     dump_to_file(database_path, database);
@@ -124,13 +179,53 @@ protected:
   virtual void setup(const project_configuration& project) = 0;
   virtual void clear() = 0;
 
-  virtual command_string compute_source_command(const source_view& view) = 0;
-  virtual command_string compute_database_entry_command(const source_view& view) = 0;
-  virtual bool needs_recompilation(const source_view& view) = 0;
+  virtual command_string compute_source_command(const source_view& view) const = 0;
+  virtual command_string compute_database_entry_command(const source_view& view) const = 0;
+  virtual command_string compute_dependecies_list_update_command(const source_view& view) const = 0;
 
-  virtual command_string compute_precompile_header_command(const precompile_header_view& view) = 0;
-  virtual command_string compute_database_entry_command(const precompile_header_view& view) = 0;
-  virtual bool needs_recompilation(const precompile_header_view& view) = 0;
+  virtual command_string compute_precompile_header_command(const precompile_header_view& view) const = 0;
+  virtual command_string compute_database_entry_command(const precompile_header_view& view) const = 0;
+  virtual command_string compute_dependecies_list_update_command(const precompile_header_view& view) const = 0;
+
+  virtual std::filesystem::file_time_type parse_update_time(const estd::stack_string_512& dependency_line) const = 0;
+
+  template <typename view_type>
+  inline bool are_dependencies_outdated(const view_type& view) const
+  {
+    command_string database_path = get_output_path(view);
+    database_path.append(".deps");
+
+    if (!std::filesystem::exists(database_path.c_str())) return true;
+    
+    auto dependency_update_time = std::filesystem::last_write_time(database_path.c_str());
+    auto source_update_time = std::filesystem::last_write_time(view.get_path());
+    return dependency_update_time < source_update_time;
+  }
+
+  template <typename view_type>
+  inline bool needs_recompilation(const view_type& view) const
+  {
+    command_string target_path = get_output_path(view);
+    target_path.append(view.extension());
+    
+    const bool object_file_is_not_present = !std::filesystem::exists(target_path.c_str());
+    if (object_file_is_not_present) return true;
+
+    command_string dependencies_list_path = get_output_path(view);
+    dependencies_list_path.append(".deps");
+
+    std::ifstream file(dependencies_list_path.c_str(), std::ios_base::in);
+    estd::stack_string_512 line;
+
+    const auto compilation_time = std::filesystem::last_write_time(target_path.c_str());
+    while (std::getline(file, line))
+    {
+      std::filesystem::file_time_type update_time = parse_update_time(line);
+      if (compilation_time < update_time) return true;
+    }
+
+    return false;
+  }
 
   template <typename view_type>
   inline command_string get_output_path(const view_type& view) const
