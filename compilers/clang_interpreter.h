@@ -26,18 +26,6 @@ protected:
       extend_list(project.get_precompile_header_view(subproject_index), precompile_header_suffix);
       precompile_headers_suffixes.push_back(std::move(precompile_header_suffix));
     }
-
-    for (const auto& subprojects : project.subprojects)
-    {
-      command_string path = g_cli_parameters.get_intermediate_path();
-      path.append(subprojects.name);
-
-      if (!std::filesystem::exists(path.c_str()))
-      {
-        estd::log("Created missing directory: {}.", path.c_str());
-        std::filesystem::create_directories(path.c_str());
-      }
-    }
   }
 
   virtual void clear() override
@@ -204,59 +192,63 @@ private:
   {
     switch (option.type)
     {
-    case compiler_options::language_standard:
-    {
-      constexpr const char* supported_standards[][2] = {
-        { "11", "-std=c++11" },
-        { "17", "-std=c++17" },
-        { "20", "-std=c++20" },
-        { "23", "-std=c++23" }
-      };
-
-      for (const auto& standard : supported_standards)
-      {
-        if (option.value == standard[0])
-        {
-          return standard[1];
-        }
-      }
-
-      estd::throw_error<std::invalid_argument>("Provided C++ standard [{}] is not supported.", option.value);
-
-      break;
-    }
-    case compiler_options::waringings_level:
-    {
-      constexpr const char* supported_levels[][2] = {
-        { "none", "-w" } ,
-        { "default", "" },
-      };
-
-      for (const auto& level : supported_levels)
-      {
-        if (option.value == level[0])
-        {
-          return level[1];
-        }
-      }
-
-      estd::throw_error<std::invalid_argument>("Provided warnings level is not supported [{}].", option.value);
-
-      break;
-    }
-    case compiler_options::disable_warnings:
-    {
-      if (option.value == "1") return "-w";
-      estd::throw_error<std::invalid_argument>("Provided disable warnings value is not supported [{}].", option.value);
-
-      break;
-    }
-
+    case compiler_options::language_standard: return convert_language_standard_option(option);
+    case compiler_options::waringings_level: return convert_warnings_level_option(option);
+    case compiler_options::disable_warnings: return convert_disable_warnings_option(option);
     default:
       estd::throw_error<std::invalid_argument>("Provided option is not supported [{}].", static_cast<uint8_t>(option.type));
       break;
     }
 
+    return "";
+  }
+
+  inline command_string convert_language_standard_option(const option_description& option) const
+  {
+    constexpr const char* supported_standards[][2] = {
+        { "11", "-std=c++11" },
+        { "17", "-std=c++17" },
+        { "20", "-std=c++20" },
+        { "23", "-std=c++23" }
+    };
+
+    for (const auto& standard : supported_standards)
+    {
+      if (option.value == standard[0])
+      {
+        return standard[1];
+      }
+    }
+
+    estd::throw_error<std::invalid_argument>("Provided C++ standard [{}] is not supported.", option.value);
+
+    return "";
+  }
+
+  inline command_string convert_warnings_level_option(const option_description& option) const
+  {
+    constexpr const char* supported_levels[][2] = {
+        { "none", "-w" } ,
+        { "default", "" },
+    };
+
+    for (const auto& level : supported_levels)
+    {
+      if (option.value == level[0])
+      {
+        return level[1];
+      }
+    }
+
+    estd::throw_error<std::invalid_argument>("Provided warnings level is not supported [{}].", option.value);
+
+    return "";
+  }
+
+  inline command_string convert_disable_warnings_option(const option_description& option) const
+  {
+    if (option.value == "1") return "-w";
+    estd::throw_error<std::invalid_argument>("Provided disable warnings value is not supported [{}].", option.value);
     return "";
   }
 

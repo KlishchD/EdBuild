@@ -15,6 +15,18 @@ public:
   {
     setup(project);
 
+    for (const auto& subprojects : project.subprojects)
+    {
+      command_string path = g_cli_parameters.get_intermediate_path();
+      path.append(subprojects.name);
+
+      if (!std::filesystem::exists(path.c_str()))
+      {
+        estd::log("Created missing directory: {}.", path.c_str());
+        std::filesystem::create_directories(path.c_str());
+      }
+    }
+
     std::size_t source_commands_count = 0;
     std::size_t header_commands_count = 0;
     for (const auto& subproject : project.subprojects)
