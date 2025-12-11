@@ -34,74 +34,10 @@ protected:
     subproject_suffixes.clear();
   }
 
-  virtual command_string compute_source_command(const source_view& view) const override
-  {
-#pragma warning "Platform specific code"
-    command_string result = "clang++ -c ";
-    result.append(view.get_path());
-    result.append(" -o ");
-    result.append(get_output_path(view));
-    result.append(".obj");
-    result.append(project_suffix);
-    result.append(subproject_suffixes[view.subproject_index]);
-    result.append(precompile_headers_suffixes[view.subproject_index]);
-    return result;
-  }
-
-  virtual command_string compute_precompile_header_command(const precompile_header_view& view) const override
-  {
-#pragma warning "Platform specific code"
-    command_string result = "clang++ -c ";
-    result.append(view.get_path());
-    result.append(" -o ");
-    result.append(get_output_path(view));
-    result.append(".pch");
-    result.append(project_suffix);
-    result.append(subproject_suffixes[view.subproject_index]);
-    return result;
-  }
-
-  virtual command_string compute_database_entry_command(const source_view& view) const override
-  {
-#pragma warning "Platform specific code"
-    command_string output_path = get_output_path(view);
-
-    command_string result = "clang++ -c ";
-    result.append(view.get_path());
-    result.append(" -o ");
-    result.append(get_output_path(view));
-    result.append(".obj");
-    result.append(project_suffix);
-    result.append(subproject_suffixes[view.subproject_index]);
-    result.append(" -MJ ");
-    result.append(output_path);
-    result.append(".dbe");
-    return result;
-  }
-
-  virtual command_string compute_database_entry_command(const precompile_header_view& view) const override
-  {
-#pragma warning "Platform specific code"
-    command_string output_path = get_output_path(view);
-
-    command_string result = "clang++ -c ";
-    result.append(view.get_path());
-    result.append(" -o ");
-    result.append(get_output_path(view));
-    result.append(".pch");
-    result.append(project_suffix);
-    result.append(subproject_suffixes[view.subproject_index]);
-    result.append(" -MJ ");
-    result.append(output_path);
-    result.append(".dbe");
-
-    return result;
-  }
-
-  virtual command_string compute_dependecies_list_update_command(const source_view& view) const override
+  virtual command_string compute_dependecies_list_update_command(const compilable_view& view) const override
   {
     command_string command = "clang++ -MM ";
-    command.append(view.get_path());
+    command.append(view.path);
     command.append(project_suffix);
     command.append(subproject_suffixes[view.subproject_index]);
     command.append(" -MF ");
@@ -110,16 +46,47 @@ protected:
     return command;
   }
 
-  virtual command_string compute_dependecies_list_update_command(const precompile_header_view& view) const override
+  virtual command_string compute_compilation_command(const compilable_view& view) const override
   {
-    command_string command = "clang++ -MM ";
-    command.append(view.get_path());
-    command.append(project_suffix);
-    command.append(subproject_suffixes[view.subproject_index]);
-    command.append(" -MF ");
-    command.append(get_output_path(view));
-    command.append(".deps");
-    return command;
+    command_string result = "clang++";
+
+    result.append(" -c ");
+    result.append(view.path);
+
+    if (!view.is_source)
+    {
+      result.append(" -Xclang -emit-pch ");
+    }
+
+    result.append(" -o ");
+    result.append(get_output_path(view));
+    result.append(view.extension);
+    result.append(project_suffix);
+    result.append(subproject_suffixes[view.subproject_index]);
+
+    if (view.is_source)
+    {
+      result.append(precompile_headers_suffixes[view.subproject_index]);
+    }
+
+    return result;
+  }
+
+  virtual command_string compute_database_entry_command(const compilable_view& view) const override
+  {
+    command_string output_path = get_output_path(view);
+
+    command_string result = "clang++ -c ";
+    result.append(view.path);
+    result.append(" -o ");
+    result.append(get_output_path(view));
+    result.append(view.extension);
+    result.append(project_suffix);
+    result.append(subproject_suffixes[view.subproject_index]);
+    result.append(" -MJ ");
+    result.append(output_path);
+    result.append(".dbe");
+    return result;
   }
 
   virtual std::filesystem::file_time_type parse_update_time(const estd::stack_string_512& dependency_line) const override
@@ -163,9 +130,9 @@ protected:
     list.append(include);
   }
 
-  void extend_list(const precompile_header_view& view, command_string& list) const
+  void extend_list(const compilable_view& view, command_string& list) const
   {
-    if (!view) return;
+    if (!view || view.is_source) return;
 
     list.append(" -include-pch ");
     list.append(get_output_path(view));

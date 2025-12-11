@@ -49,7 +49,7 @@ public:
       const auto& subproject = project.subprojects[subproject_index];
       if (subproject.is_precompiled()) continue;
 
-      if (precompile_header_view view = project.get_precompile_header_view(subproject_index))
+      if (compilable_view view = project.get_precompile_header_view(subproject_index))
       {
         if (are_dependencies_outdated(view))
         {
@@ -60,7 +60,7 @@ public:
 
       for (std::size_t source_index = 0; source_index < subproject.sources.size(); ++source_index)
       {
-        source_view view = project.get_source_view(subproject_index, source_index);
+        compilable_view view = project.get_source_view(subproject_index, source_index);
         if (are_dependencies_outdated(view))
         {
           command_string update_command = compute_dependecies_list_update_command(view);
@@ -88,14 +88,14 @@ public:
       const auto& subproject = project.subprojects[subproject_index];
       if (subproject.is_precompiled()) continue;
 
-      if (precompile_header_view view = project.get_precompile_header_view(subproject_index))
+      if (compilable_view view = project.get_precompile_header_view(subproject_index))
       {
         headers_filter[subproject_index] = needs_recompilation(view);
       }
 
       for (std::size_t source_index = 0; source_index < subproject.sources.size(); ++source_index)
       {
-        source_view view = project.get_source_view(subproject_index, source_index);
+        compilable_view view = project.get_source_view(subproject_index, source_index);
         sources_filter[subproject_index][source_index] = needs_recompilation(view);
       }
     }
@@ -106,9 +106,9 @@ public:
       const auto& subproject = project.subprojects[subproject_index];
       if (subproject.is_precompiled()) continue;
     
-      if (precompile_header_view view = project.get_precompile_header_view(subproject_index); view && headers_filter[subproject_index])
+      if (compilable_view view = project.get_precompile_header_view(subproject_index); view && headers_filter[subproject_index])
       {
-        command_string compilation_command = compute_precompile_header_command(view);
+        command_string compilation_command = compute_compilation_command(view);
         header_commands.push_back(std::move(compilation_command));
     
         command_string database_entry_command = compute_database_entry_command(view);
@@ -120,9 +120,9 @@ public:
       {
         if (!sources_filter[subproject_index][source_index]) continue;
 
-        source_view view = project.get_source_view(subproject_index, source_index);
+        compilable_view view = project.get_source_view(subproject_index, source_index);
 
-        command_string compilation_command = compute_source_command(view);
+        command_string compilation_command = compute_compilation_command(view);
         source_commands.push_back(std::move(compilation_command));
     
         command_string database_entry_command = compute_database_entry_command(view);
@@ -146,7 +146,7 @@ public:
       const auto& subproject = project.subprojects[subproject_index];
       if (subproject.is_precompiled()) continue;
     
-      if (precompile_header_view view = project.get_precompile_header_view(subproject_index))
+      if (compilable_view view = project.get_precompile_header_view(subproject_index))
       {
         command_string database_entry_path = get_output_path(view);
         database_entry_path.append(".dbe");
@@ -161,7 +161,7 @@ public:
       const std::size_t sources_count = project.subprojects[subproject_index].sources.size();
       for (std::size_t source_index = 0; source_index < sources_count; ++source_index)
       {
-        source_view view = project.get_source_view(subproject_index, source_index);
+        compilable_view view = project.get_source_view(subproject_index, source_index);
     
         command_string database_entry_path = get_output_path(view);
         database_entry_path.append(".dbe");
@@ -191,18 +191,13 @@ protected:
   virtual void setup(const project_configuration& project) = 0;
   virtual void clear() = 0;
 
-  virtual command_string compute_source_command(const source_view& view) const = 0;
-  virtual command_string compute_database_entry_command(const source_view& view) const = 0;
-  virtual command_string compute_dependecies_list_update_command(const source_view& view) const = 0;
-
-  virtual command_string compute_precompile_header_command(const precompile_header_view& view) const = 0;
-  virtual command_string compute_database_entry_command(const precompile_header_view& view) const = 0;
-  virtual command_string compute_dependecies_list_update_command(const precompile_header_view& view) const = 0;
+  virtual command_string compute_dependecies_list_update_command(const compilable_view& view) const = 0;
+  virtual command_string compute_compilation_command(const compilable_view& view) const = 0;
+  virtual command_string compute_database_entry_command(const compilable_view& view) const = 0;
 
   virtual std::filesystem::file_time_type parse_update_time(const estd::stack_string_512& dependency_line) const = 0;
 
-  template <typename view_type>
-  inline bool are_dependencies_outdated(const view_type& view) const
+  inline bool are_dependencies_outdated(const compilable_view& view) const
   {
     command_string database_path = get_output_path(view);
     database_path.append(".deps");
@@ -210,15 +205,14 @@ protected:
     if (!std::filesystem::exists(database_path.c_str())) return true;
     
     auto dependency_update_time = std::filesystem::last_write_time(database_path.c_str());
-    auto source_update_time = std::filesystem::last_write_time(view.get_path());
+    auto source_update_time = std::filesystem::last_write_time(view.path);
     return dependency_update_time < source_update_time;
   }
 
-  template <typename view_type>
-  inline bool needs_recompilation(const view_type& view) const
+  inline bool needs_recompilation(const compilable_view& view) const
   {
     command_string target_path = get_output_path(view);
-    target_path.append(view.extension());
+    target_path.append(view.extension);
     
     const bool object_file_is_not_present = !std::filesystem::exists(target_path.c_str());
     if (object_file_is_not_present) return true;
@@ -239,12 +233,11 @@ protected:
     return false;
   }
 
-  template <typename view_type>
-  inline command_string get_output_path(const view_type& view) const
+  inline command_string get_output_path(const compilable_view& view) const
   {
     command_string result = g_cli_parameters.get_intermediate_path();
-    result.append(view.get_subproject_name());
-    append_filename(view.get_path(), result);
+    result.append(view.subproject_name);
+    append_filename(view.path, result);
 
     return result;
   }

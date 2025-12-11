@@ -61,75 +61,75 @@ struct subproject_configuration
 
 using subproject_configurations = std::vector<subproject_configuration>;
 
+struct compilable_view
+{
+  const char* path = nullptr;
+  const char* extension = nullptr;
+
+  const char* subproject_name = nullptr;
+  std::size_t subproject_index = -1;
+
+  bool is_source = false;
+  bool has_precompile_header = false;
+
+  operator bool() const
+  {
+    return !!path;
+  }
+};
+
 struct project_configuration
 {
-  struct resource_view
-  {
-    const project_configuration& project;
-    std::size_t subproject_index;
-
-    const std::string& get_subproject_name() const
-    {
-      return project.subprojects[subproject_index].name;
-    }
-  };
-
-  struct source_view : public resource_view
-  {
-    std::size_t source_index;
-
-    inline const char* extension() const
-    {
-      return ".obj";
-    }
-
-    inline const std::string& get_path() const
-    {
-      return project.subprojects[subproject_index].sources[source_index];
-    }
-
-    inline bool has_precompiler_header() const
-    {
-      return project.subprojects[subproject_index].has_precompile_header();
-    }
-  };
-
-  struct precompile_header_view : public resource_view
-  {
-    inline const char* extension() const
-    {
-      return ".pch";
-    }
-
-    inline const std::string& get_path() const
-    {
-      return project.subprojects[subproject_index].precompile_header;
-    }
-
-    inline operator bool() const
-    {
-      return project.subprojects[subproject_index].has_precompile_header();
-    }
-  };
-
   subproject_configurations subprojects;
   option_descriptions options;
   define_descriptions defines;
   std::string name;
 
-  source_view get_source_view(std::size_t subproject, std::size_t source) const
+  compilable_view get_source_view(std::size_t subproject_index, std::size_t source_index) const
   {
-    // TODO: Add assert.
-    return { *this, subproject, source };
+    compilable_view result{ };
+
+    if (subproject_index < subprojects.size())
+    {
+      const auto& subproject = subprojects[subproject_index];
+      if (source_index < subproject.sources.size())
+      {
+        result.path = subproject.sources[source_index].c_str();
+        result.extension = ".obj";
+
+        result.subproject_name = subproject.name.c_str();
+        result.subproject_index = subproject_index;
+
+        result.is_source = true;
+        result.has_precompile_header = !subproject.precompile_header.empty();
+      }
+    }
+
+    return result;
   }
 
-  precompile_header_view get_precompile_header_view(std::size_t subproject) const
+  compilable_view get_precompile_header_view(std::size_t subproject_index) const
   {
-    // TODO: Add assert.
-    return { *this, subproject };
+    compilable_view result{ };
+
+    if (subproject_index < subprojects.size())
+    {
+      const auto& subproject = subprojects[subproject_index];
+      if (subproject.precompile_header.size())
+      {
+        result.path = subproject.precompile_header.c_str();
+        result.extension = ".pch";
+
+        result.subproject_name = subproject.name.c_str();
+        result.subproject_index = subproject_index;
+
+        result.is_source = false;
+        result.has_precompile_header = false;
+      }
+    }
+
+    return result;
   }
 };
 
-using source_view = project_configuration::source_view;
-using precompile_header_view = project_configuration::precompile_header_view;
 using dependencies_list = std::vector<const std::string*>;

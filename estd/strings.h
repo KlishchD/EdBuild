@@ -109,22 +109,30 @@ namespace estd
     path.append(new_extension);
   }
 
-  template<typename filename_string_type, typename path_string_type>
-  void append_filename(const filename_string_type& filename, path_string_type& path)
+  template<typename path_string_type>
+  void append_filename(const char* filename, path_string_type& path)
   {
 #pragma warning "Platform dependent code"
 
-    if (filename.empty()) return;
+    if (!filename) return;
 
-    std::size_t filename_begin_index = filename.size() - 1;
+    std::size_t size = strnlen(filename, 512);
+
+    std::size_t filename_begin_index = size - 1;
     while (filename_begin_index > 0 && filename[filename_begin_index] != '\\')
     {
       --filename_begin_index;
     }
 
-    for (std::size_t index = filename_begin_index; index < filename.size() && filename[index] != '.'; ++index)
+    for (std::size_t index = filename_begin_index; index < size && filename[index] != '.'; ++index)
     {
       path.push_back(filename[index]);
     }
+  }
+
+  template<typename filename_string_type, typename path_string_type>
+  void append_filename(const filename_string_type& filename, path_string_type& path)
+  {
+    append_filename(filename.c_str(), path);
   }
 }
