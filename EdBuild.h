@@ -119,8 +119,11 @@ void* operator new(size_t size)
 
 void operator delete(void* data) noexcept
 {
-  uint32_t* header = reinterpret_cast<uint32_t*>(data) - 1;
+  if (data)
+  {
+    uint32_t* header = reinterpret_cast<uint32_t*>(data) - 1;
 
-  builder_memory_report().deallocate(*header);
-  free(header);
+    builder_memory_report().deallocate(*header);
+    free(header);
+  }
 }
