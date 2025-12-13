@@ -28,6 +28,10 @@
 #include <stdio.h>
 #include <iterator>
 
+#include <Windows.h>
+#undef min
+#undef max
+
 #include "estd/exceptions.h"
 #include "estd/strings.h"
 #include "estd/shell.h"

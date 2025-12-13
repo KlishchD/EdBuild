@@ -132,6 +132,40 @@ protected:
 
   inline bool needs_recompilation(const compilable_view& view) const
   {
+    static bool builder_was_updated = []()
+      {
+#pragma warning "Platform dependent code."
+
+        constexpr std::size_t buffer_size = MAX_PATH;
+        char executable_path[buffer_size];
+
+        std::size_t size = GetModuleFileNameA(nullptr, executable_path, buffer_size);
+        estd::assert_condition(size, "Failed to fetch executable path.");
+
+        auto intermediate_update_time = std::filesystem::file_time_type::max();
+        auto intermediate_iterator = std::filesystem::recursive_directory_iterator(g_cli_parameters.get_intermediate_path());
+        for (const std::filesystem::directory_entry& entry : intermediate_iterator)
+        {
+          std::filesystem::path extension = entry.path().extension();
+          //estd::log("[{}] <-> [{}]", entry.path().string().c_str(), extension.string().c_str());
+
+          if (extension == ".obj" || extension == ".pch")
+          {
+            //estd::log("ENTERED!!!");
+            intermediate_update_time = std::min(intermediate_update_time, entry.last_write_time());
+          }
+        }
+
+        const auto executable_update_time = std::filesystem::last_write_time(executable_path);
+        estd::log("Executable path:          [{}].", executable_path);
+        estd::log("Intermediate update time: [{}].", intermediate_update_time);
+        estd::log("Executalbe update time:   [{}].", executable_update_time);
+
+        return executable_update_time > intermediate_update_time;
+      }();
+
+    if (builder_was_updated) return true;
+
     command_string target_path = get_output_path(view);
     target_path.append(view.extension);
     
