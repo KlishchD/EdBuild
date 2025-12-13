@@ -61,7 +61,9 @@ public:
       if (needs_recompilation(view))
       {
         command_string compilation_command = compute_compilation_command(view);
-        header_commands.push_back(std::move(compilation_command));
+
+        auto& compilation_command_destiantion = view.is_source ? source_commands : header_commands;
+        compilation_command_destiantion.push_back(compilation_command);
 
         command_string database_entry_command = compute_database_entry_command(view);
         database_entry_commands.push_back(std::move(database_entry_command));
