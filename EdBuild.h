@@ -26,6 +26,7 @@
 #include <set>
 #include <queue>
 #include <stdio.h>
+#include <iterator>
 
 #include "estd/exceptions.h"
 #include "estd/strings.h"

@@ -44,92 +44,30 @@ public:
     database_entry_commands.reserve(source_commands_count + header_commands_count);
     dependencies_list_commands.reserve(source_commands_count + header_commands_count);
 
-    for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
+    for (compilable_view view : project.get_compilables())
     {
-      const auto& subproject = project.subprojects[subproject_index];
-      if (subproject.is_precompiled()) continue;
-
-      if (compilable_view view = project.get_precompile_header_view(subproject_index))
+      if (are_dependencies_outdated(view))
       {
-        if (are_dependencies_outdated(view))
-        {
-          command_string update_command = compute_dependecies_list_update_command(view);
-          dependencies_list_commands.push_back(std::move(update_command));
-        }
-      }
-
-      for (std::size_t source_index = 0; source_index < subproject.sources.size(); ++source_index)
-      {
-        compilable_view view = project.get_source_view(subproject_index, source_index);
-        if (are_dependencies_outdated(view))
-        {
-          command_string update_command = compute_dependecies_list_update_command(view);
-          dependencies_list_commands.push_back(std::move(update_command));
-        }
+        command_string update_command = compute_dependecies_list_update_command(view);
+        dependencies_list_commands.push_back(std::move(update_command));
       }
     }
 
     estd::async_shell_execute<32>(dependencies_list_commands, g_cli_parameters.get_threads_count());
 
-    using source_filter_mask = std::vector<std::vector<bool>>;
-    using headers_filter_mask = std::vector<bool>;
-
-    source_filter_mask sources_filter(project.subprojects.size());
-    headers_filter_mask headers_filter(project.subprojects.size());
-
-    for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
-    {
-      const std::size_t sources_count = project.subprojects[subproject_index].sources.size();
-      sources_filter[subproject_index].resize(sources_count, false);
-    }
-
-    for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
-    {
-      const auto& subproject = project.subprojects[subproject_index];
-      if (subproject.is_precompiled()) continue;
-
-      if (compilable_view view = project.get_precompile_header_view(subproject_index))
-      {
-        headers_filter[subproject_index] = needs_recompilation(view);
-      }
-
-      for (std::size_t source_index = 0; source_index < subproject.sources.size(); ++source_index)
-      {
-        compilable_view view = project.get_source_view(subproject_index, source_index);
-        sources_filter[subproject_index][source_index] = needs_recompilation(view);
-      }
-    }
-
 #pragma warning "URVO"
-    for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
+    for (compilable_view view : project.get_compilables())
     {
-      const auto& subproject = project.subprojects[subproject_index];
-      if (subproject.is_precompiled()) continue;
-    
-      if (compilable_view view = project.get_precompile_header_view(subproject_index); view && headers_filter[subproject_index])
+      if (needs_recompilation(view))
       {
         command_string compilation_command = compute_compilation_command(view);
         header_commands.push_back(std::move(compilation_command));
-    
-        command_string database_entry_command = compute_database_entry_command(view);
-        database_entry_commands.push_back(std::move(database_entry_command));
-      }
-    
-      const std::size_t sources_count = project.subprojects[subproject_index].sources.size();
-      for (std::size_t source_index = 0; source_index < sources_count; ++source_index)
-      {
-        if (!sources_filter[subproject_index][source_index]) continue;
 
-        compilable_view view = project.get_source_view(subproject_index, source_index);
-
-        command_string compilation_command = compute_compilation_command(view);
-        source_commands.push_back(std::move(compilation_command));
-    
         command_string database_entry_command = compute_database_entry_command(view);
         database_entry_commands.push_back(std::move(database_entry_command));
       }
     }
- 
+
     estd::async_shell_execute<32>(header_commands, g_cli_parameters.get_threads_count());
     estd::async_shell_execute<32>(source_commands, g_cli_parameters.get_threads_count());
     estd::async_shell_execute<32>(database_entry_commands, g_cli_parameters.get_threads_count());
@@ -141,41 +79,20 @@ public:
     
     database.append("[\n");
     
-    for (std::size_t subproject_index = 0; subproject_index < project.subprojects.size(); ++subproject_index)
+    for (compilable_view view : project.get_compilables())
     {
-      const auto& subproject = project.subprojects[subproject_index];
-      if (subproject.is_precompiled()) continue;
-    
-      if (compilable_view view = project.get_precompile_header_view(subproject_index))
+      command_string database_entry_path = get_output_path(view);
+      database_entry_path.append(".dbe");
+
+      //estd::log("ENTRY: {}.", database_entry_path.c_str());
+
+      if (std::filesystem::exists(database_entry_path.c_str()))
       {
-        command_string database_entry_path = get_output_path(view);
-        database_entry_path.append(".dbe");
-    
-        if (std::filesystem::exists(database_entry_path.c_str()))
-        {
-          append_file_data(database_entry_path, database);
-          database.push_back('\n');
-        }
-      }
-    
-      const std::size_t sources_count = project.subprojects[subproject_index].sources.size();
-      for (std::size_t source_index = 0; source_index < sources_count; ++source_index)
-      {
-        compilable_view view = project.get_source_view(subproject_index, source_index);
-    
-        command_string database_entry_path = get_output_path(view);
-        database_entry_path.append(".dbe");
-    
-        //estd::log("ENTRY: {}.", database_entry_path.c_str());
-    
-        if (std::filesystem::exists(database_entry_path.c_str()))
-        {
-          append_file_data(database_entry_path, database);
-          database.push_back('\n');
-        }
+        append_file_data(database_entry_path, database);
+        database.push_back('\n');
       }
     }
-    
+
     database.push_back(']');
     
     command_string database_path = g_cli_parameters.get_intermediate_path();
