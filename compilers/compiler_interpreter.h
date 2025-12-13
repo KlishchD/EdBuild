@@ -17,6 +17,8 @@ public:
 
     for (const auto& subprojects : project.subprojects)
     {
+      if (subprojects.is_precompiled()) continue;
+
       command_string path = g_cli_parameters.get_intermediate_path();
       path.append(subprojects.name);
 
