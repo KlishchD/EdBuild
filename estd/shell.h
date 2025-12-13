@@ -12,7 +12,7 @@ namespace estd
     {
       if constexpr (enable_debug_logging)
       {
-        estd::log("Executing command: {}.", command.c_str());
+        estd::log("Executing command: {:.128}.", command.c_str());
       }
 
       FILE* pipe = _popen(command.c_str(), "r");
