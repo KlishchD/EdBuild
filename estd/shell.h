@@ -2,7 +2,7 @@
 
 namespace estd
 {
-#pragma "Platform specific code."
+#pragma warning "Platform specific code."
   template <typename result_string_type, bool enable_debug_logging = true>
   class shell final
   {

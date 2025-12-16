@@ -255,7 +255,7 @@ protected:
         project.artifact_type = artifact_types::static_library;
       }
 
-#pragma "Clould add parsing of artifact type based on extension."
+#pragma warning "Clould add parsing of artifact type based on extension."
       if (const std::string* name = reader.artifact_name())
       {
         estd::log("FOUND: [{}]", project.name.c_str());
