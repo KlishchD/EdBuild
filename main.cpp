@@ -1,5 +1,7 @@
 #include "EdBuild.h"
 
+#include "compilers/clang_translator.h"
+
 int32_t main(int32_t count, const char** arguments)
 {
   // clang++ -MM main.cpp
@@ -29,11 +31,10 @@ int32_t main(int32_t count, const char** arguments)
 
     project_configuration project = parser.parse(reader);
 
-    clang_interpreter compiler;
-    compiler.compile(project);
+    g_compilers_registry.register_driver<caching_compiler_driver<clang_translator>>();
 
-    llvm_linker_interpreter linker;
-    linker.link(project);
+    builder instance;
+    instance.build(project);
 
     estd::log("\nProject name: {}.", project.name.c_str());
     estd::log("Defines: {}.", project.defines.size());
@@ -41,13 +42,10 @@ int32_t main(int32_t count, const char** arguments)
     estd::log("Subprojects: {}.", project.subprojects.size());
     for (const auto& subprojcet : project.subprojects)
     {
-      estd::log("{} - {}: {}", static_cast<uint32_t>(subprojcet.artifact_type), subprojcet.name.c_str(), subprojcet.precompile_header.c_str());
+      estd::log("{} - {}: {}", static_cast<uint32_t>(subprojcet.artifact_type), subprojcet.name.c_str(), subprojcet.precompile_header.get_c_path());
     }
 
     estd::log("");
-
-    using command_string = clang_interpreter::command_string;
-
 
     targets().clean();
     platforms().clean();
@@ -75,7 +73,7 @@ int32_t main(int32_t count, const char** arguments)
     return 1;
   }
 
-#pragma message "Checkout multithreaded builds"
+#pragma warning "Checkout multithreaded builds"
 
   return 0;
 }

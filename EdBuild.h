@@ -71,7 +71,6 @@ struct strings
   static inline const char* concat(const char* lhs, const char* rhs)
   {
     const uint32_t lhs_size = strlen(lhs);
-    const uint32_t rhs_size = strlen(rhs);
 
     char* result = string<default_local_string_legth>();
     concat_inline(result, default_local_string_legth, lhs);
@@ -90,9 +89,39 @@ struct strings
   }
 };
 
+#include "project.h"
+
 #include "cli.h"
-#include "compilers/clang_interpreter.h"
-#include "linkers/lld_link_interpreter.h"
+
+#pragma warning "Needs better organization."
+inline command_string get_output_path(const compilable_view& view)
+{
+  command_string result = g_cli_parameters.get_intermediate_path();
+  result.append(view.subproject_name);
+  append_filename(view.path, result);
+
+  return result;
+}
+
+void append_file_data(const command_string& filepath, std::string& store)
+{
+  std::ifstream file(filepath.c_str(), std::ios_base::in);
+
+  command_string line;
+  while (std::getline(file, line))
+  {
+    store.append(line);
+  }
+}
+
+void dump_to_file(const command_string& filepath, const std::string& data)
+{
+  std::ofstream file(filepath.c_str(), std::ios_base::out);
+  file << data;
+}
+
+#include "builder.h"
+
 #include "readers/json_reader.h"
 #include "parsers/input_parser.h"
 

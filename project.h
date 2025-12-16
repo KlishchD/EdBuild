@@ -20,11 +20,145 @@ struct define_description
   std::string value;
 };
 
+class filter_status
+{
+  enum
+  {
+    object_files_is_not_present = 1,
+    dependencies_were_updated,
+    builder_was_updated
+  };
+public:
+  filter_status() : status(0) {}
+  filter_status(const filter_status& new_status) : status(new_status.status) {}
+  filter_status(filter_status&& new_status) : status(new_status.status)
+  {
+    new_status.status = 0;
+  }
+
+  uint16_t get_status() const
+  {
+    return status;
+  }
+
+  std::string get_reason() const
+  {
+    switch (status)
+    {
+    case object_files_is_not_present: return "Object file is not present.";
+    case dependencies_were_updated: return "Dependencies were updated.";
+    case builder_was_updated: return "Builder was updated.";
+    default:
+      return "None";
+    }
+  }
+
+  bool is_not_filtered() const
+  {
+    return status == 0;
+  }
+
+  bool is_filtered() const
+  {
+    return status;
+  }
+
+  operator bool() const
+  {
+    return status;
+  }
+
+  filter_status& operator=(uint16_t new_status)
+  {
+    status = new_status;
+    return *this;
+  }
+
+  filter_status& operator=(const filter_status& new_status)
+  {
+    status = new_status.status;
+    return *this;
+  }
+
+  filter_status& operator=(filter_status&& new_status)
+  {
+    status = new_status.status;
+    new_status.status = 0;
+    return *this;
+  }
+
+  void set_object_files_is_not_present()
+  {
+    status = object_files_is_not_present;
+  }
+
+  void set_dependencies_were_updated()
+  {
+    status = dependencies_were_updated;
+  }
+
+  void set_builder_was_updated()
+  {
+    status = builder_was_updated;
+  }
+private:
+  uint16_t status;
+};
+
+struct compilable_description
+{
+  std::string path;
+  filter_status status;
+
+  compilable_description() : path(), status() {}
+
+  template <typename string_type>
+  compilable_description(const string_type& path) : path(path), status() {}
+
+  compilable_description(const compilable_description& other) : path(other.path), status(other.status)
+  { }
+
+  compilable_description(compilable_description&& other) : path(std::move(other.path)), status(std::move(other.status))
+  { }
+
+  compilable_description& operator=(const compilable_description& other)
+  {
+    path = other.path;
+    status = other.status;
+    return *this;
+  }
+
+  compilable_description& operator=(compilable_description&& other)
+  {
+    path = std::move(other.path);
+    status = std::move(other.status);
+    return *this;
+  }
+
+  bool is_present() const
+  {
+    return path.size();
+  }
+
+  bool is_not_present() const
+  {
+    return path.empty();
+  }
+
+  const char* get_c_path() const
+  {
+    return path.c_str();
+  }
+};
+
 using option_descriptions = std::vector<option_description>;
 using define_descriptions = std::vector<define_description>;
 using dependecy_libraries = std::vector<std::string>;
-using source_files = std::vector<std::string>;
+using source_files = std::vector<compilable_description>;
 using include_files = std::vector<std::string>;
+
+using command_string = estd::stack_string_2048;
+using commands_list = std::vector<command_string>;
 
 enum class artifact_types : uint8_t
 {
@@ -43,19 +177,25 @@ struct subproject_configuration
 
   source_files sources;
   include_files includes;
-  std::string precompile_header;
+  compilable_description precompile_header;
 
   artifact_types artifact_type;
   std::string artifact_name;
 
   bool has_precompile_header() const
   {
-    return precompile_header.size();
+    return precompile_header.is_present();
   }
 
   bool is_precompiled() const
   {
     return artifact_name.size();
+  }
+
+  std::size_t get_compilables_count() const
+  {
+    if (is_precompiled()) return 0;
+    return sources.size() + has_precompile_header();
   }
 };
 
@@ -69,6 +209,8 @@ struct compilable_view
   const char* subproject_name = nullptr;
   std::size_t subproject_index = -1;
   std::size_t compilable_index = -1;
+
+  filter_status* status;
 
   bool is_source = false;
   bool has_precompile_header = false;
@@ -86,24 +228,43 @@ struct project_configuration
   define_descriptions defines;
   std::string name;
 
+
   compilable_view get_source_view(std::size_t subproject_index, std::size_t source_index) const
   {
     compilable_view result{ };
 
     if (subproject_index < subprojects.size())
     {
-      const auto& subproject = subprojects[subproject_index];
+      auto& subproject = subprojects[subproject_index];
       if (source_index < subproject.sources.size())
       {
-        result.path = subproject.sources[source_index].c_str();
+        result.path = subproject.sources[source_index].get_c_path();
         result.extension = ".obj";
 
         result.subproject_name = subproject.name.c_str();
         result.subproject_index = subproject_index;
         result.compilable_index = source_index + 1;
 
+        result.status = nullptr;
+
         result.is_source = true;
-        result.has_precompile_header = !subproject.precompile_header.empty();
+        result.has_precompile_header = subproject.precompile_header.is_not_present();
+      }
+    }
+
+    return result;
+  }
+
+  compilable_view get_source_view(std::size_t subproject_index, std::size_t source_index)
+  {
+    compilable_view result = std::as_const(*this).get_source_view(subproject_index, source_index);
+
+    if (subproject_index < subprojects.size())
+    {
+      auto& subproject = subprojects[subproject_index];
+      if (source_index < subproject.sources.size())
+      {
+        result.status = &subproject.sources[source_index].status;
       }
     }
 
@@ -116,18 +277,36 @@ struct project_configuration
 
     if (subproject_index < subprojects.size())
     {
-      const auto& subproject = subprojects[subproject_index];
-      if (subproject.precompile_header.size())
+      auto& subproject = subprojects[subproject_index];
+      if (subproject.precompile_header.is_present())
       {
-        result.path = subproject.precompile_header.c_str();
+        result.path = subproject.precompile_header.get_c_path();
         result.extension = ".pch";
 
         result.subproject_name = subproject.name.c_str();
         result.subproject_index = subproject_index;
         result.compilable_index = 0;
 
+        result.status = nullptr;
+
         result.is_source = false;
         result.has_precompile_header = false;
+      }
+    }
+
+    return result;
+  }
+
+  compilable_view get_precompile_header_view(std::size_t subproject_index)
+  {
+    compilable_view result = std::as_const(*this).get_precompile_header_view(subproject_index);
+
+    if (subproject_index < subprojects.size())
+    {
+      auto& subproject = subprojects[subproject_index];
+      if (subproject.precompile_header.is_present())
+      {
+        result.status = &subproject.precompile_header.status;
       }
     }
 
@@ -144,14 +323,14 @@ struct project_configuration
     {
     }
 
-    compilables_forward_iterator(const project_configuration& project)
+    compilables_forward_iterator(project_configuration& project)
       : project(&project)
     {
       for (std::size_t index{ 0 }; index < project.subprojects.size(); ++index)
       {
         const auto& subproject = project.subprojects[index];
 
-        if (subproject.precompile_header.size())
+        if (subproject.precompile_header.is_present())
         {
           subproject_index = index;
           compilable_index = 0;
@@ -167,7 +346,7 @@ struct project_configuration
       }
     }
 
-    compilables_forward_iterator(const project_configuration& project, std::size_t subproject_index, std::size_t compilable_index)
+    compilables_forward_iterator(project_configuration& project, std::size_t subproject_index, std::size_t compilable_index)
       : project(&project), subproject_index(subproject_index), compilable_index(compilable_index)
     {
     }
@@ -192,7 +371,28 @@ struct project_configuration
       estd::assert_condition(subproject_index < project->subprojects.size(), "Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
 
       const auto& subproject = project->subprojects[subproject_index];
-      const bool has_precompile_header = subproject.precompile_header.size();
+      const bool has_precompile_header = subproject.precompile_header.is_present();
+      estd::assert_condition(compilable_index != 0 || has_precompile_header, "Compilable index [{}] is not available as subproject [{}] has no precompile headers.", compilable_index, subproject.name.c_str());
+
+      const std::size_t compilables_count = subproject.sources.size() + 1;
+      estd::assert_condition(compilable_index < compilables_count, "Compilable index [{}] is out of the bounds in subrpoject [{}] with compiblables count [{}].", compilable_index, subproject.name.c_str(), compilables_count);
+
+      compilable_view view;
+
+      if (compilable_index == 0) view = project->get_precompile_header_view(subproject_index);
+      else view = project->get_source_view(subproject_index, compilable_index - 1);
+
+      return view;
+    }
+
+    compilable_view operator*()
+    {
+      //estd::log("[{}] [{}]", project->subprojects[subproject_index].name.c_str(), compilable_index);
+
+      estd::assert_condition(subproject_index < project->subprojects.size(), "Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
+
+      const auto& subproject = project->subprojects[subproject_index];
+      const bool has_precompile_header = subproject.precompile_header.is_present();
       estd::assert_condition(compilable_index != 0 || has_precompile_header, "Compilable index [{}] is not available as subproject [{}] has no precompile headers.", compilable_index, subproject.name.c_str());
 
       const std::size_t compilables_count = subproject.sources.size() + 1;
@@ -228,7 +428,7 @@ struct project_configuration
             const auto& next_subrpoject = project->subprojects[subproject_index];
             if (next_subrpoject.is_precompiled()) continue;
 
-            const bool has_compilables = next_subrpoject.precompile_header.size() || next_subrpoject.sources.size();
+            const bool has_compilables = next_subrpoject.get_compilables_count();
             if (has_compilables) break;
           }
         }
@@ -236,7 +436,7 @@ struct project_configuration
         if (subproject_index < project->subprojects.size())
         {
           const auto& next_subrpoject = project->subprojects[subproject_index];
-          compilable_index = next_subrpoject.precompile_header.empty();
+          compilable_index = next_subrpoject.precompile_header.is_not_present();
         }
         else
         {
@@ -263,26 +463,28 @@ struct project_configuration
       return project == other.project && subproject_index == other.subproject_index && compilable_index == other.compilable_index;
     }
   private:
-    const project_configuration* project;
+    project_configuration* project;
     std::size_t subproject_index;
     std::size_t compilable_index;
   };
 
   static_assert(std::forward_iterator<compilables_forward_iterator>);
 
+
+#pragma warning "Add a const version."
   struct compilables
   {
-    compilables(const project_configuration& project) : project(project)
+    compilables(project_configuration& project) : project(project)
     { }
 
     compilables_forward_iterator begin() { return { project }; }
     compilables_forward_iterator end() { return { project, project.subprojects.size(), 0 }; }
 
   private:
-    const project_configuration& project;
+    project_configuration& project;
   };
 
-  compilables get_compilables() const
+  compilables get_compilables()
   {
     return compilables { *this };
   }
