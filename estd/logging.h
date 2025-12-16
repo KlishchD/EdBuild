@@ -4,7 +4,7 @@
 namespace estd
 {
   template <std::size_t capacity>
-  struct stack_string;
+  class stack_string;
 
   template <typename... args_types>
   inline void assert_condition(bool condition, const std::format_string<args_types...>& format, args_types... args);
