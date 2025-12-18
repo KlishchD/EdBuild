@@ -48,7 +48,6 @@ public:
     filter(orchestrator, project);
     compile(orchestrator, project);
     assemble_commands_database(orchestrator, project);
-
   }
 protected:
   void setup_directories(const project_configuration& project)
@@ -119,10 +118,21 @@ protected:
 
   void compile(compiler_orchestrator& orchestrator, project_configuration& project)
   {
-    commands_list compilation_commands = orchestrator.generate_compilation_commands();
-    estd::log("Compilations commands count: {}.\n", compilation_commands.size());
+    commands_paritions partitions = orchestrator.generate_compilation_commands();
 
-    estd::async_shell_execute<32>(compilation_commands, g_cli_parameters.get_threads_count());
+    estd::log("Compilation partitions count: {}.", partitions.size());
+    for (std::size_t partition_index{ 0 }; partition_index < partitions.size(); ++partition_index)
+    {
+      estd::log("Compilation partition {} size: {}.", partition_index, partitions[partition_index].size());
+    }
+
+    estd::log("");
+
+    for (std::size_t partition_index{ 0 }; partition_index < partitions.size(); ++partition_index)
+    {
+      estd::log("Partition {}:", partition_index);
+      estd::async_shell_execute<32>(partitions[partition_index], g_cli_parameters.get_threads_count());
+    }
   }
 
   void assemble_commands_database(compiler_orchestrator& orchestrator, project_configuration& project)

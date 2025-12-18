@@ -34,7 +34,7 @@ class compiler_orchestrator
 public:
 #pragma warning "Add drivers conflicts detection, based on projects interests."
 #pragma warning "Is it a good idea to have registry public this way?"
-  compiler_orchestrator(project_configuration& project) : compilables_count(0)
+  compiler_orchestrator(project_configuration& project) : project(project), compilables_count(0)
   {
     g_compilers_registry.create_dirvers(project, drivers);
 
@@ -65,17 +65,20 @@ public:
     }
   }
 
-  commands_list generate_compilation_commands()
+  commands_paritions generate_compilation_commands()
   {
-    commands_list list;
-    list.reserve(compilables_count);
+    commands_paritions lists(2);
+
+#pragma warning "Will need to generalize this, when time will come to add distribution."
+    lists[0].reserve(project.subprojects.size());
+    lists[1].reserve(compilables_count);
 
     for (const auto& driver : drivers)
     {
-      driver->generate_compilation_commands(list);
+      driver->generate_compilation_commands(lists);
     }
 
-    return list;
+    return lists;
   }
   
   commands_list generate_database_entry_commands()
@@ -92,6 +95,7 @@ public:
   }
 
 protected:
+  const project_configuration& project;
   std::vector<std::unique_ptr<compiler_driver>> drivers;
   std::size_t compilables_count;
 };
