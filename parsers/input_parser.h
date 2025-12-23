@@ -85,6 +85,7 @@ public:
       const auto& subproject_dependencies = subproject.dependencies;
       //estd::log("Processing: {}, {}.", subproject.name, inverse_dependencies_lists[subproject_index].size());
 
+#pragma warning "Stuff that parser should not know about!"
 #pragma warning "Redundant copy."
       estd::stack_string_512 dependency;
       if (subproject.artifact_name.size())
@@ -134,10 +135,10 @@ public:
     for (std::size_t subproject_index = 0; subproject_index < subprojects_count; ++subproject_index)
     {
       const auto& subproject = project.subprojects[subproject_index];
-      estd::log("{} ranks {}.", subproject.name.c_str(), states[name_mapping[subproject.name]].rank);
-      for (const auto& include : subproject.includes)
+      estd::log("[{}] [{}] Dependencies:", subproject.name.c_str(), states[name_mapping[subproject.name]].rank);
+      for (const auto& dependency : subproject.dependencies)
       {
-        estd::log("{}.", include.c_str());
+        estd::log("{}.", dependency.c_str());
       }
     }
 
@@ -260,7 +261,7 @@ protected:
       {
         estd::log("FOUND: [{}]", project.name.c_str());
 
-        estd::stack_string_512 path = g_cli_parameters.get_intermediate_path();
+        estd::stack_string_512 path = g_cli_parameters.get_project_path();
         path.append(*name);
 
         project.artifact_name = path;
