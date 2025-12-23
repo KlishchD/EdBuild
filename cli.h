@@ -279,9 +279,41 @@ public:
     windows
   };
 
-  consteval platform(char marker, const char* name, type type) : named_enum_type(marker, name, static_cast<int32_t>(type))
+  consteval platform(char marker, const char* name, type type,
+    const char* preprocessing_extension,
+    const char* object_extension, const char* precompile_header_extension,
+    const char* static_library_extension, const char* dynamic_library_extension, const char* exectuable_extension,
+    const char* dependencies_extension, const char* database_extension)
+    : named_enum_type(marker, name, static_cast<int32_t>(type)),
+    preprocessing_extension(preprocessing_extension),
+    object_extension(object_extension),
+    precompile_header_extension(precompile_header_extension),
+    static_library_extension(static_library_extension),
+    dynamic_library_extension(dynamic_library_extension),
+    exectuable_extension(exectuable_extension),
+    dependencies_extension(dependencies_extension),
+    database_extension(database_extension)
   {
   }
+
+  // Some of these extensions are cross platform but I wanted to have them customizable :)
+  const char* get_preprocessing_extension() const { return preprocessing_extension; }
+  const char* get_object_extension() const { return object_extension; }
+  const char* get_precompile_header_extension() const { return precompile_header_extension; }
+  const char* get_static_library_extension() const { return static_library_extension; }
+  const char* get_dynamic_library_extension() const { return dynamic_library_extension; }
+  const char* get_exectuable_extension() const { return exectuable_extension; }
+  const char* get_dependencies_extension() const { return dependencies_extension; }
+  const char* get_database_extension() const { return database_extension; }
+protected:
+  const char* preprocessing_extension;
+  const char* object_extension;
+  const char* precompile_header_extension;
+  const char* static_library_extension;
+  const char* dynamic_library_extension;
+  const char* exectuable_extension;
+  const char* dependencies_extension;
+  const char* database_extension;
 };
 
 using platforms_list = named_enums_list<platform, platform::type>;
@@ -292,7 +324,14 @@ inline platforms_list& platforms()
 
   if (list.empty())
   {
-    static constexpr platform windows = { 'W', "Windows", platform::windows };
+    static constexpr platform windows = {
+      'W',
+      "Windows",
+      platform::windows,
+      ".i", ".obj", ".pch",
+      ".lib", ".dll", ".exe",
+      ".deps", ".dbe"
+    };
 
     list.append(&windows);
   }

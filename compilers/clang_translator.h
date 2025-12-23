@@ -38,7 +38,8 @@ public:
 
     list.append(" -include-pch ");
     list.append(get_output_path(view));
-    list.append(".pch ");
+    list.append(active_platform()->get_precompile_header_extension());
+    list.append(" ");
   }
 
   command_string compute_dependecies_list_update_command(const compilable_view& view) const
@@ -47,7 +48,7 @@ public:
     command.append(view.path);
     command.append(" -MF ");
     command.append(get_output_path(view));
-    command.append(".deps");
+    command.append(active_platform()->get_dependencies_extension());
     return command;
   }
 
@@ -81,7 +82,8 @@ public:
     result.append(view.extension);
     result.append(" -MJ ");
     result.append(output_path);
-    result.append(".dbe ");
+    result.append(active_platform()->get_database_extension());
+    result.append(" ");
     return result;
   }
 
@@ -207,7 +209,8 @@ public:
 
     list.append(" /Fp");
     list.append(get_output_path(view));
-    list.append(".pch ");
+    list.append(active_platform()->get_precompile_header_extension());
+    list.append(" ");
   }
 
   command_string compute_dependecies_list_update_command(const compilable_view& view) const
@@ -217,10 +220,10 @@ public:
     command.append(view.path);
     command.append(" /Fi");
     command.append(get_output_path(view));
-    command.append(".i");
+    command.append(active_platform()->get_preprocessing_extension());
     command.append(" 2> ");
     command.append(get_output_path(view));
-    command.append(".deps");
+    command.append(active_platform()->get_dependencies_extension());
     return command;
   }
 
@@ -248,7 +251,7 @@ public:
 #pragma "File format mismatch issue."
     result.append(" /Fo");
     result.append(get_output_path(view));
-    result.append(".obj");
+    result.append(active_platform()->get_object_extension());
 
     if (!view.is_source)
     {
