@@ -5,10 +5,21 @@
 class builder
 {
 public:
-  builder() 
+  struct configuration
+  {
+    bool ignore_builder_updates = false;
+  };
+
+  builder(configuration config) : builder_was_updated(false)
   {
 #pragma warning "Platform dependent code."
 
+    if (!config.ignore_builder_updates) builder_was_updated = check_builder_update();
+  }
+
+protected:
+  bool check_builder_update()
+  {
     constexpr std::size_t buffer_size = MAX_PATH;
     char executable_path[buffer_size];
 
@@ -35,7 +46,7 @@ public:
     estd::log("Executalbe update time:   [{}].", executable_update_time);
     estd::log("");
 
-    builder_was_updated = executable_update_time > intermediate_update_time;
+    return executable_update_time > intermediate_update_time;
   }
 
   void build(project_configuration& project)

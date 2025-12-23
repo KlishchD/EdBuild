@@ -33,7 +33,10 @@ int32_t main(int32_t count, const char** arguments)
 
     g_compilers_registry.register_driver<caching_compiler_driver<clang_translator>>();
 
-    builder instance;
+    builder::configuration configuration;
+    configuration.ignore_builder_updates = g_cli_parameters.ignore_builder_update();
+
+    builder instance{ configuration };
     instance.build(project);
 
     estd::log("\nProject name: {}.", project.name.c_str());

@@ -27,6 +27,7 @@ public:
     test_parameter<false>(strings::target_parameter_name);
     test_parameter<false>(strings::platform_parameter_name);
     test_parameter<false>(strings::intermediate_parameter_name);
+    test_parameter<false>(strings::project_parameter_name);
     test_parameter<true>(strings::thread_parameter_name);
   }
 
@@ -68,9 +69,20 @@ public:
     return find(strings::intermediate_parameter_name);
   }
 
+  const char* get_project_path() const
+  {
+    return find(strings::project_parameter_name);
+  }
+
   uint32_t get_threads_count() const
   {
     return atoi(find(strings::thread_parameter_name));
+  }
+
+  bool ignore_builder_update() const
+  {
+    const char* status = find(strings::ignore_builder_update_name);
+    return status ? status[0] == '1' : false;
   }
 
   void dump_parameters() const
