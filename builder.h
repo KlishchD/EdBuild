@@ -18,7 +18,7 @@ public:
 
   builder(const configuration& config) : config(config), builder_was_updated(false)
   {
-#pragma warning "Platform dependent code."
+#pragma message("Platform dependent code.")
 
     if (!config.ignore_builder_updates) builder_was_updated = check_builder_update();
   }

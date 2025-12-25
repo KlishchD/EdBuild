@@ -13,15 +13,15 @@ public:
   {
     list.append("lld-link ");
 
-#pragma warning "Platform dependency."
+#pragma message("Platform dependency.")
     if (view.type == artifact_types::static_library)
     {
       list.append("/lib ");
     }
-#pragma warning "To be moved to options to allow user selection."
+#pragma message("To be moved to options to allow user selection.")
     list.append("/subsystem:CONSOLE ");
 
-#pragma warning "Make one varargs function for path composition, it will allow to hide platform dependent code and make it easier to read."
+#pragma message("Make one varargs function for path composition, it will allow to hide platform dependent code and make it easier to read.")
     for (compilable_view compilable : view.compilables)
     {
       list.append(g_cli_parameters.get_intermediate_path());
@@ -58,7 +58,7 @@ public:
         list.push_back(' ');
       }
 
-#pragma warning "Platform dependency."
+#pragma message("Platform dependency.")
       list.append("kernel32.lib user32.lib gdi32.lib winspool.lib ");
       list.append("comdlg32.lib advapi32.lib shell32.lib ole32.lib ");
       list.append("oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ");

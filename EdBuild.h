@@ -95,7 +95,7 @@ struct strings
 
 #include "cli.h"
 
-#pragma warning "Needs better organization."
+#pragma message("Needs better organization.")
 inline command_string get_output_path(const compilable_view& view)
 {
   command_string result = g_cli_parameters.get_intermediate_path();

@@ -79,7 +79,7 @@ int32_t main(int32_t count, const char** arguments)
     return 1;
   }
 
-#pragma warning "Checkout multithreaded builds"
+#pragma message("Checkout multithreaded builds.")
 
   return 0;
 }

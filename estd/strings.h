@@ -112,7 +112,7 @@ namespace estd
   template<typename path_string_type>
   void append_filename(const char* filename, path_string_type& path)
   {
-#pragma warning "Platform dependent code"
+#pragma message("Platform dependent code.")
 
     if (!filename) return;
 

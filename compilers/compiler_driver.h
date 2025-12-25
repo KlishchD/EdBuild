@@ -35,7 +35,7 @@ public:
       command_string list_path = get_output_path(view);
       list_path.append(".deps");
 
-#pragma warning "List could be updated by updating dependencies themselves, need to handle this as well."
+#pragma message("List could be updated by updating dependencies themselves, need to handle this as well.")
       const bool list_exists = std::filesystem::exists(list_path.c_str());
       if (list_exists)
       {

@@ -7,7 +7,7 @@
 class compiler_orchestrator
 {
 public:
-#pragma warning "Add drivers conflicts detection, based on projects interests."
+#pragma message("Add drivers conflicts detection, based on projects interests.")
   compiler_orchestrator(project_configuration& project, const tools_registry& tools) : project(project), compilables_count(0)
   {
     tools.create_drivers(project, drivers);
@@ -43,7 +43,7 @@ public:
   {
     commands_paritions lists(2);
 
-#pragma warning "Will need to generalize this, when time will come to add distribution."
+#pragma message("Will need to generalize this, when time will come to add distribution.")
     lists[0].reserve(project.subprojects.size());
     lists[1].reserve(compilables_count);
 

@@ -20,7 +20,7 @@ public:
 
   virtual void generate_linking_commands(commands_paritions& lists) override
   {
-#pragma warning "Could improve performance by grouping static libraries in one partition."
+#pragma message("Could improve performance by grouping static libraries in one partition.")
     for (artifact_view view : project.get_artifacts())
     {
       if (view.preproduced) continue;

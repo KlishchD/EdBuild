@@ -215,7 +215,7 @@ public:
 
   command_string compute_dependecies_list_update_command(const compilable_view& view) const
   {
-#pragma warning "Add exceptions logic as a separate option."
+#pragma message("Add exceptions logic as a separate option.")
     command_string command = "clang-cl /TP /EHa /showIncludes:user /P ";
     command.append(view.path);
     command.append(" /Fi");
@@ -229,7 +229,7 @@ public:
 
   command_string compute_compilation_command(const compilable_view& view) const
   {
-#pragma warning "Add exceptions logic as a separate option."
+#pragma message("Add exceptions logic as a separate option.")
     command_string result = "clang-cl /TP /EHa /c ";
 
     if (!view.is_source)
@@ -240,7 +240,7 @@ public:
         result.pop_back();
       }
 
-#pragma warning "This should probably be controllable."
+#pragma message("This should probably be controllable.")
       result.append("cpp");
 
       result.append(" /Yc");
@@ -248,7 +248,7 @@ public:
 
     result.append(view.path);
 
-#pragma warning "File format mismatch issue."
+#pragma message("File format mismatch issue.")
     result.append(" /Fo");
     result.append(get_output_path(view));
     result.append(active_platform()->get_object_extension());

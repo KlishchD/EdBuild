@@ -85,8 +85,8 @@ public:
       const auto& subproject_dependencies = subproject.dependencies;
       //estd::log("Processing: {}, {}.", subproject.name, inverse_dependencies_lists[subproject_index].size());
 
-#pragma warning "Stuff that parser should not know about!"
-#pragma warning "Redundant copy."
+#pragma message("Stuff that parser should not know about!")
+#pragma message("Redundant copy.")
       estd::stack_string_512 dependency;
       if (subproject.artifact_name.size())
       {
@@ -123,7 +123,7 @@ public:
       }
     }
 
-#pragma warning "Linking logic optimization possible, pass dependencies and rank the configuration."
+#pragma message("Linking logic optimization possible, pass dependencies and rank the configuration.")
     std::sort(project.subprojects.begin(), project.subprojects.end(), [&name_mapping, &states](const subproject_configuration& lhs, const subproject_configuration& rhs)
       {
         const std::size_t lhs_ranks_index = name_mapping[lhs.name];
@@ -256,7 +256,7 @@ protected:
         project.artifact_type = artifact_types::static_library;
       }
 
-#pragma warning "Clould add parsing of artifact type based on extension."
+#pragma message("Clould add parsing of artifact type based on extension.")
       if (const std::string* name = reader.artifact_name())
       {
         estd::log("FOUND: [{}]", project.name.c_str());
