@@ -248,7 +248,7 @@ public:
 
     result.append(view.path);
 
-#pragma "File format mismatch issue."
+#pragma warning "File format mismatch issue."
     result.append(" /Fo");
     result.append(get_output_path(view));
     result.append(active_platform()->get_object_extension());

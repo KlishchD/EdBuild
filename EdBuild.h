@@ -122,6 +122,7 @@ void dump_to_file(const command_string& filepath, const std::string& data)
   file << data;
 }
 
+#include "tools_registry.h"
 #include "builder.h"
 
 #include "readers/json_reader.h"

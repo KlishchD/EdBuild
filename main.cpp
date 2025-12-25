@@ -1,6 +1,7 @@
 #include "EdBuild.h"
 
 #include "compilers/clang_translator.h"
+#include "linkers/lld_link_translator.h"
 
 int32_t main(int32_t count, const char** arguments)
 {
@@ -31,10 +32,12 @@ int32_t main(int32_t count, const char** arguments)
 
     project_configuration project = parser.parse(reader);
 
-    g_compilers_registry.register_driver<caching_compiler_driver<clang_translator>>();
+    tools().register_driver<caching_compiler_driver<clang_cl_translator>>();
+    tools().register_driver<direct_linking_driver<lld_linker_translator>>();
 
-    builder::configuration configuration;
+    builder::configuration configuration(tools());
     configuration.ignore_builder_updates = g_cli_parameters.ignore_builder_update();
+    configuration.generate_compilation_database = false;
 
     builder instance{ configuration };
     instance.build(project);

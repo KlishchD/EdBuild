@@ -1,20 +1,47 @@
 #pragma once
 
 #include "compilers/compiler_orchestrator.h"
+#include "linkers/linker_orchestrator.h"
 
 class builder
 {
 public:
   struct configuration
   {
+    configuration(const tools_registry& tools) : tools(tools)
+    { }
+
+    const tools_registry& tools;
     bool ignore_builder_updates = false;
+    bool generate_compilation_database = true;
   };
 
-  builder(configuration config) : builder_was_updated(false)
+  builder(const configuration& config) : config(config), builder_was_updated(false)
   {
 #pragma warning "Platform dependent code."
 
     if (!config.ignore_builder_updates) builder_was_updated = check_builder_update();
+  }
+
+  void build(project_configuration& project)
+  {
+    setup_directories(project);
+
+    compiler_orchestrator compilers(project, config.tools);
+    compilation_preparations(compilers, project);
+    update_dependencies(compilers, project);
+    filter(compilers, project);
+    compile(compilers, project);
+
+    if (config.generate_compilation_database)
+    {
+      assemble_commands_database(compilers, project);
+    }
+
+    estd::log("\n\nStarting Linking:");
+
+    linker_orchestrator linkers(project, config.tools);
+    link(linkers, project);
   }
 
 protected:
@@ -49,18 +76,6 @@ protected:
     return executable_update_time > intermediate_update_time;
   }
 
-  void build(project_configuration& project)
-  {
-    setup_directories(project);
-
-    compiler_orchestrator orchestrator(project);
-    compilation_preparations(orchestrator, project);
-    update_dependencies(orchestrator, project);
-    filter(orchestrator, project);
-    compile(orchestrator, project);
-    assemble_commands_database(orchestrator, project);
-  }
-protected:
   void setup_directories(const project_configuration& project)
   {
     estd::log("Directory setup:");
@@ -181,7 +196,28 @@ protected:
     dump_to_file(database_path, database);
   }
 
+  void link(linker_orchestrator& linkers, project_configuration& project)
+  {
+    commands_paritions partition = linkers.generate_linking_commands();
+
+    estd::log("Linking partitions count: {}.", partition.size());
+    for (std::size_t partition_index{ 0 }; partition_index < partition.size(); ++partition_index)
+    {
+      const auto& commands = partition[partition_index];
+      estd::log("Linking partition {} size: {}.", partition_index, commands.size());
+    }
+
+    estd::log("");
+
+    for (std::size_t partition_index{ 0 }; partition_index < partition.size(); ++partition_index)
+    {
+      estd::log("Partition {}:", partition_index);
+      estd::async_shell_execute<32>(partition[partition_index], g_cli_parameters.get_threads_count());
+    }
+  }
+
 protected:
+  const configuration& config;
   bool builder_was_updated;
   std::size_t compilables_count;
 };

@@ -157,7 +157,7 @@ using dependecy_libraries = std::vector<std::string>;
 using source_files = std::vector<compilable_description>;
 using include_files = std::vector<std::string>;
 
-using command_string = estd::stack_string_2048;
+using command_string = estd::stack_string_8192;
 using commands_list = std::vector<command_string>;
 
 enum class artifact_types : uint8_t
@@ -190,6 +190,16 @@ struct subproject_configuration
   bool is_precompiled() const
   {
     return artifact_name.size();
+  }
+
+  bool produces_artifact() const
+  {
+    return !is_precompiled();
+  }
+
+  bool preproduced_artifact() const
+  {
+    return is_precompiled();
   }
 
   std::size_t get_compilables_count() const
@@ -228,6 +238,11 @@ struct project_configuration
   define_descriptions defines;
   std::string name;
 
+  bool has_precompile_header(std::size_t subproject_index) const
+  {
+    estd::assert_condition(subproject_index < subprojects.size(), "Attempted to check out of bound subproject [{}] for precompile header, subprojects [{}].", subproject_index, subprojects.size());
+    return subprojects[subproject_index].has_precompile_header();
+  }
 
   compilable_view get_source_view(std::size_t subproject_index, std::size_t source_index) const
   {
@@ -238,6 +253,7 @@ struct project_configuration
       auto& subproject = subprojects[subproject_index];
       if (source_index < subproject.sources.size())
       {
+#pragma message("Plaftform dependant code.")
         result.path = subproject.sources[source_index].get_c_path();
         result.extension = ".obj";
 
@@ -280,6 +296,7 @@ struct project_configuration
       auto& subproject = subprojects[subproject_index];
       if (subproject.precompile_header.is_present())
       {
+#pragma message("Plaftform dependant code.")
         result.path = subproject.precompile_header.get_c_path();
         result.extension = ".pch";
 
@@ -323,31 +340,20 @@ struct project_configuration
     {
     }
 
-    compilables_forward_iterator(project_configuration& project)
-      : project(&project)
+    compilables_forward_iterator(project_configuration* project)
+      : project(project)
     {
-      for (std::size_t index{ 0 }; index < project.subprojects.size(); ++index)
-      {
-        const auto& subproject = project.subprojects[index];
-
-        if (subproject.precompile_header.is_present())
-        {
-          subproject_index = index;
-          compilable_index = 0;
-          break;
-        }
-
-        if (subproject.sources.size())
-        {
-          subproject_index = index;
-          compilable_index = 1;
-          break;
-        }
-      }
+      move_to_first_item(0);
     }
 
-    compilables_forward_iterator(project_configuration& project, std::size_t subproject_index, std::size_t compilable_index)
-      : project(&project), subproject_index(subproject_index), compilable_index(compilable_index)
+    compilables_forward_iterator(project_configuration* project, std::size_t subproject_index)
+      : project(project), subproject_index(subproject_index)
+    {
+      move_to_first_item(subproject_index);
+    }
+
+    compilables_forward_iterator(project_configuration* project, std::size_t subproject_index, std::size_t compilable_index)
+      : project(project), subproject_index(subproject_index), compilable_index(compilable_index)
     {
     }
 
@@ -366,9 +372,9 @@ struct project_configuration
 
     compilable_view operator*() const
     {
-      //estd::log("[{}] [{}]", project->subprojects[subproject_index].name.c_str(), compilable_index);
+      //estd::log("[{}] [{}] [{}].", subproject_index, project->subprojects[subproject_index].name.c_str(), compilable_index);
 
-      estd::assert_condition(subproject_index < project->subprojects.size(), "Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
+      estd::assert_condition(subproject_index < project->subprojects.size(), "Compilables: Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
 
       const auto& subproject = project->subprojects[subproject_index];
       const bool has_precompile_header = subproject.precompile_header.is_present();
@@ -387,9 +393,9 @@ struct project_configuration
 
     compilable_view operator*()
     {
-      //estd::log("[{}] [{}]", project->subprojects[subproject_index].name.c_str(), compilable_index);
+      //estd::log("[{}] [{}] [{}].", subproject_index, project->subprojects[subproject_index].name.c_str(), compilable_index);
 
-      estd::assert_condition(subproject_index < project->subprojects.size(), "Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
+      estd::assert_condition(subproject_index < project->subprojects.size(), "Compilables: Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
 
       const auto& subproject = project->subprojects[subproject_index];
       const bool has_precompile_header = subproject.precompile_header.is_present();
@@ -408,7 +414,7 @@ struct project_configuration
 
     compilables_forward_iterator& operator++()
     {
-      estd::assert_condition(subproject_index < project->subprojects.size(), "Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
+      estd::assert_condition(subproject_index < project->subprojects.size(), "Compilables: Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
       const auto& subproject = project->subprojects[subproject_index];
 
       const bool only_precompile_header = compilable_index == 0 && subproject.sources.empty();
@@ -463,6 +469,32 @@ struct project_configuration
       return project == other.project && subproject_index == other.subproject_index && compilable_index == other.compilable_index;
     }
   private:
+    void move_to_first_item(std::size_t subrpoject_start_index)
+    {
+      for (std::size_t index{ subrpoject_start_index }; index < project->subprojects.size(); ++index)
+      {
+        const auto& subproject = project->subprojects[index];
+
+        if (subproject.precompile_header.is_present())
+        {
+          subproject_index = index;
+          compilable_index = 0;
+          return;
+        }
+
+        if (subproject.sources.size())
+        {
+          subproject_index = index;
+          compilable_index = 1;
+          return;
+        }
+      }
+
+      subproject_index = project->subprojects.size();
+      compilable_index = 0;
+    }
+
+  private:
     project_configuration* project;
     std::size_t subproject_index;
     std::size_t compilable_index;
@@ -470,24 +502,186 @@ struct project_configuration
 
   static_assert(std::forward_iterator<compilables_forward_iterator>);
 
-
-#pragma warning "Add a const version."
-  struct compilables
+#pragma message("Add a const version.")
+  struct compilables_list
   {
-    compilables(project_configuration& project) : project(project)
+    compilables_list()
+      : project(nullptr), begin_subroject_index(0), end_subproject_index(0)
     { }
 
-    compilables_forward_iterator begin() { return { project }; }
-    compilables_forward_iterator end() { return { project, project.subprojects.size(), 0 }; }
+    compilables_list(project_configuration* project)
+      : project(project), begin_subroject_index(0), end_subproject_index(project->subprojects.size())
+    { }
 
+    compilables_list(project_configuration* project, std::size_t begin_subroject_index, std::size_t end_subproject_index)
+      : project(project), begin_subroject_index(begin_subroject_index), end_subproject_index(end_subproject_index)
+    { }
+
+    compilables_list(const compilables_list& other)
+      : project(other.project), begin_subroject_index(other.begin_subroject_index), end_subproject_index(other.end_subproject_index)
+    { }
+
+    compilables_list(compilables_list&& other)
+      : project(other.project), begin_subroject_index(other.begin_subroject_index), end_subproject_index(other.end_subproject_index)
+    {
+      other.project = nullptr;
+      other.begin_subroject_index = 0;
+      other.end_subproject_index = 0;
+    }
+
+    compilables_list& operator=(const compilables_list& other)
+    {
+      project = other.project;
+      begin_subroject_index = other.begin_subroject_index;
+      end_subproject_index = other.end_subproject_index;
+      return *this;
+    }
+
+    compilables_list& operator=(compilables_list&& other)
+    {
+      project = other.project;
+      begin_subroject_index = other.begin_subroject_index;
+      end_subproject_index = other.end_subproject_index;
+
+      other.project = nullptr;
+      other.begin_subroject_index = 0;
+      other.end_subproject_index = 0;
+
+      return *this;
+    }
+
+    compilables_forward_iterator begin() { return { project, begin_subroject_index }; }
+    compilables_forward_iterator end() { return { project, end_subproject_index }; }
+
+    compilables_forward_iterator begin() const { return { project, begin_subroject_index }; }
+    compilables_forward_iterator end() const { return { project, end_subproject_index }; }
   private:
-    project_configuration& project;
+    project_configuration* project;
+    std::size_t begin_subroject_index;
+    std::size_t end_subproject_index;
   };
 
-  compilables get_compilables()
+  compilables_list get_compilables()
   {
-    return compilables { *this };
+    return compilables_list{ const_cast<project_configuration*>(this) };
+  }
+
+  compilables_list get_compilables(std::size_t subproject_index)
+  {
+    return compilables_list{ const_cast<project_configuration*>(this), subproject_index, subproject_index + 1 };
+  }
+
+#pragma message("Strange list ptr.")
+  struct artifact_view
+  {
+    const char* subproject_name;
+    const dependecy_libraries* dependencies;
+    compilables_list compilables;
+    artifact_types type;
+    bool preproduced;
+  };
+
+  class artifacts_forward_iterator final
+  {
+  public:
+    using difference_type = int64_t;
+    using value_type = artifact_view;
+
+    artifacts_forward_iterator() : project(nullptr), subproject_index(0)
+    { }
+
+    artifacts_forward_iterator(project_configuration* project) : project(project)
+    { }
+
+    artifacts_forward_iterator(project_configuration* project, std::size_t subproject_index)
+      : project(project), subproject_index(subproject_index)
+    { }
+
+    artifacts_forward_iterator(const artifacts_forward_iterator& other)
+      : project(other.project), subproject_index(other.subproject_index)
+    { }
+
+    artifacts_forward_iterator& operator=(const artifacts_forward_iterator& other)
+    {
+      project = other.project;
+      subproject_index = other.subproject_index;
+      return *this;
+    }
+
+    artifact_view operator*() const
+    {
+      //estd::log("[{}].", project->subprojects[subproject_index].name.c_str());
+      estd::assert_condition(subproject_index < project->subprojects.size(), "Artifacts: Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
+      return project->get_artifact_view(subproject_index);
+    }
+
+    artifact_view operator*()
+    {
+      //estd::log("[{}].", project->subprojects[subproject_index].name.c_str());
+      estd::assert_condition(subproject_index < project->subprojects.size(), "Artifacts: Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
+      return project->get_artifact_view(subproject_index);
+    }
+
+    artifacts_forward_iterator& operator++()
+    {
+      estd::assert_condition(subproject_index < project->subprojects.size(), "Artifacts: Subproject index [{}] is out of the bound [{}].", subproject_index, project->subprojects.size());
+      ++subproject_index;
+      return *this;
+    }
+
+    artifacts_forward_iterator operator++(int)
+    {
+      artifacts_forward_iterator result = *this;
+      this->operator++();
+      return result;
+    }
+
+    bool operator==(const artifacts_forward_iterator& other) const
+    {
+      return project == other.project && subproject_index == other.subproject_index;
+    }
+  private:
+    project_configuration* project;
+    std::size_t subproject_index;
+  };
+
+  static_assert(std::forward_iterator<artifacts_forward_iterator>);
+
+  class artifacts_list
+  {
+  public:
+    artifacts_list(project_configuration* project) : project(project)
+    {
+    }
+
+    artifacts_forward_iterator begin() { return { project, 0 }; }
+    artifacts_forward_iterator end() { return { project, project->subprojects.size() }; }
+  protected:
+    project_configuration* project;
+  };
+
+  artifact_view get_artifact_view(std::size_t subproject_index)
+  {
+    const auto& subproject = subprojects[subproject_index];
+
+    artifact_view view;
+    view.subproject_name = subproject.name.c_str();
+    view.compilables = get_compilables(subproject_index);
+    view.dependencies = &subproject.dependencies;
+    view.type = subproject.artifact_type;
+    view.preproduced = subproject.preproduced_artifact();
+
+    return view;
+  }
+
+  artifacts_list get_artifacts() const
+  {
+    return artifacts_list{ const_cast<project_configuration*>(this) };
   }
 };
+
+#pragma message("Header only problems.")
+using compilables_list = project_configuration::compilables_list;
+using artifact_view = project_configuration::artifact_view;
 
 using dependencies_list = std::vector<const std::string*>;
