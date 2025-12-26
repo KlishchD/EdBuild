@@ -50,6 +50,7 @@ struct strings
   static constexpr const char* target_parameter_name = "-Target";
   static constexpr const char* platform_parameter_name = "-Platform";
   static constexpr const char* intermediate_parameter_name = "-Intermediate";
+  static constexpr const char* builds_parameter_name = "-Builds";
   static constexpr const char* project_parameter_name = "-Project";
   static constexpr const char* thread_parameter_name = "-Threads";
   static constexpr const char* ignore_builder_update_name = "-IgnoreBuilderUpdate";

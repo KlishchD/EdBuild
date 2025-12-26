@@ -27,6 +27,7 @@ public:
     test_parameter<false>(strings::target_parameter_name);
     test_parameter<false>(strings::platform_parameter_name);
     test_parameter<false>(strings::intermediate_parameter_name);
+    test_parameter<false>(strings::builds_parameter_name);
     test_parameter<false>(strings::project_parameter_name);
     test_parameter<true>(strings::thread_parameter_name);
   }
@@ -67,6 +68,11 @@ public:
   const char* get_intermediate_path() const
   {
     return find(strings::intermediate_parameter_name);
+  }
+
+  const char* get_builds_path() const
+  {
+    return find(strings::builds_parameter_name);
   }
 
   const char* get_project_path() const
