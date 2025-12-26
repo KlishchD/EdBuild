@@ -5,6 +5,7 @@
 
 class compiler_input_parser
 {
+  using dependencies_list = std::vector<const std::string*>;
 public:
   using option_parser = compiler_options(*)(const std::string& option_name);
 
@@ -15,6 +16,8 @@ public:
 
   project_configuration parse(input_reader& reader) const
   {
+    estd::log("Project parsing starts.");
+
     std::vector<dependencies_list> dependencies_lists;
     dependencies_list temporary_dependencies;
 
@@ -34,6 +37,22 @@ public:
       reader.next_subproject();
     }
 
+    while (reader.next_build())
+    {
+      build_configuration build;
+
+      const std::string* name = reader.build_name();
+      const std::string* subproject = reader.build_subproject_name();
+
+      estd::assert_condition(name, "Build configuration must include name.");
+      estd::assert_condition(subproject, "Build [{}] configuration must include subproject name.", name->c_str());
+
+      build.name = *name;
+      build.subproject_name = *subproject;
+
+      project.builds.push_back(std::move(build));
+    }
+
     const std::size_t subprojects_count = dependencies_lists.size();
 
     std::map<std::string, std::size_t> name_mapping;
@@ -43,106 +62,22 @@ public:
       name_mapping[subproject.name] = subproject_index;
     }
 
-    std::vector<std::vector<std::size_t>> inverse_dependencies_lists;
-    inverse_dependencies_lists.resize(subprojects_count);
-
     for (std::size_t subproject_index = 0; subproject_index < subprojects_count; ++subproject_index)
     {
+      auto& subproject = project.subprojects[subproject_index];
+      subproject.dependencies_count = dependencies_lists[subproject_index].size();
+
       for (const std::string* dependency_name : dependencies_lists[subproject_index])
       {
         estd::log("PP: {}, {}.", project.subprojects[subproject_index].name, *dependency_name);
 
         const std::size_t dependency_index = name_mapping[*dependency_name];
-        inverse_dependencies_lists[dependency_index].push_back(subproject_index);
+        auto& dependency_subrproject = project.subprojects[dependency_index];
+        dependency_subrproject.dependants.push_back(subproject_index);
       }
     }
 
-    struct node_state
-    {
-      std::size_t rank = 0;
-      std::size_t supplied = 0;
-    };
-
-    std::vector<node_state> states(subprojects_count);
-    std::queue<std::size_t> processing_queue;
-
-    for (std::size_t subproject_index = 0; subproject_index < subprojects_count; ++subproject_index)
-    {
-      const bool is_leaf_project = dependencies_lists[subproject_index].empty();
-      if (is_leaf_project)
-      {
-        processing_queue.push(subproject_index);
-      }
-    }
-
-    while (processing_queue.size())
-    {
-      const std::size_t subproject_index = processing_queue.front();
-      processing_queue.pop();
-
-      const auto& subproject = project.subprojects[subproject_index];
-      const auto& subproject_includes = subproject.includes;
-      const auto& subproject_dependencies = subproject.dependencies;
-      //estd::log("Processing: {}, {}.", subproject.name, inverse_dependencies_lists[subproject_index].size());
-
-#pragma message("Stuff that parser should not know about!")
-#pragma message("Redundant copy.")
-      estd::stack_string_512 dependency;
-      if (subproject.artifact_name.size())
-      {
-        dependency = subproject.artifact_name.c_str();
-      }
-      else
-      {
-        dependency.append(g_cli_parameters.get_intermediate_path());
-        dependency.append(subproject.name);
-        dependency.push_back('\\');
-        dependency.append(subproject.name);
-        dependency.append(".lib");
-      }
-
-      for (const std::size_t dependant_index : inverse_dependencies_lists[subproject_index])
-      {
-        auto& dependant_subproject = project.subprojects[dependant_index];
-
-        //estd::log("PP: {}, {}.", subproject.name, dependant_subproject.name);
-
-        auto& dependant_includes = dependant_subproject.includes;
-        dependant_includes.insert(dependant_includes.end(), subproject_includes.begin(), subproject_includes.end());
-
-        auto& dependant_dependencies = dependant_subproject.dependencies;
-        dependant_dependencies.push_back(dependency.c_str());
-        dependant_dependencies.insert(dependant_dependencies.end(), subproject_dependencies.begin(), subproject_dependencies.end());
-
-        auto& depndency_state = states[dependant_index];
-        depndency_state.rank = states[subproject_index].rank + 1;
-        depndency_state.supplied++;
-
-        const bool supplied_last_dependency = depndency_state.supplied == dependencies_lists[dependant_index].size();
-        if (supplied_last_dependency) processing_queue.push(dependant_index);
-      }
-    }
-
-#pragma message("Linking logic optimization possible, pass dependencies and rank the configuration.")
-    std::sort(project.subprojects.begin(), project.subprojects.end(), [&name_mapping, &states](const subproject_configuration& lhs, const subproject_configuration& rhs)
-      {
-        const std::size_t lhs_ranks_index = name_mapping[lhs.name];
-        const std::size_t rhs_ranks_index = name_mapping[rhs.name];
-        return states[lhs_ranks_index].rank < states[rhs_ranks_index].rank;
-      });
-
-    estd::log("\nOrdering: ");
-    for (std::size_t subproject_index = 0; subproject_index < subprojects_count; ++subproject_index)
-    {
-      const auto& subproject = project.subprojects[subproject_index];
-      estd::log("[{}] [{}] Dependencies:", subproject.name.c_str(), states[name_mapping[subproject.name]].rank);
-      for (const auto& dependency : subproject.dependencies)
-      {
-        estd::log("{}.", dependency.c_str());
-      }
-    }
-
-    //std::exit(2);
+    estd::log("Project parsing finished.");
 
     return project;
   }
@@ -232,39 +167,76 @@ protected:
         project.precompile_header = path;
       }
 
-      if (const std::string* artifact = reader.artifact_type())
+      const std::string* artifact_type = reader.artifact_type();
+      const std::string* static_library = reader.static_library();
+      const std::string* import_library = reader.import_library();
+      const std::string* dynamic_library = reader.dynamic_library();
+      const std::string* executable = reader.executable();
+
+      const bool requests_artifact_creation = artifact_type;
+      const bool provides_preproduced_artifact = static_library || import_library || dynamic_library || executable;
+
+      const uint32_t artifact_requests = requests_artifact_creation + provides_preproduced_artifact;
+      estd::assert_condition(artifact_requests != 2, "Project must either provide preproduced artifact or request type to generate and not both.");
+
+      estd::log("Artifact status: [{}], {}, {}.", project.name, requests_artifact_creation, provides_preproduced_artifact);
+
+      if (provides_preproduced_artifact)
       {
-        if ((*artifact) == "Executable")
+        artifact_description& artifact = project.artifact;
+        artifact.preproduced = true;
+
+        const bool preproduced_static_library = static_library;
+        const bool preproduced_dynamic_library = dynamic_library;
+        const bool preproduced_executable = executable;
+
+        const uint32_t preproduced_artifacts = preproduced_static_library + preproduced_dynamic_library + preproduced_executable;
+        estd::assert_condition(preproduced_artifacts == 1, "Project can not provide multiple preproduced artifact types.");
+
+        if (preproduced_static_library)
         {
-          project.artifact_type = artifact_types::excutable;
+          artifact.type = artifact_types::static_library;
+          artifact.static_library().append(g_cli_parameters.get_project_path());
+          artifact.static_library().append(*static_library);
         }
-        else if ((*artifact) == "StaticLibary")
+        else if (preproduced_dynamic_library)
         {
-          project.artifact_type = artifact_types::static_library;
-        }
-        else if ((*artifact) == "DynamicLibrary")
-        {
-          project.artifact_type = artifact_types::dynamic_library;
+          artifact.type = artifact_types::dynamic_library;
+
+          if (import_library)
+          {
+            artifact.import_library().append(g_cli_parameters.get_project_path());
+            artifact.import_library().append(*import_library);
+          }
+
+          artifact.dynamic_library().append(g_cli_parameters.get_project_path());
+          artifact.dynamic_library().append(*dynamic_library);
         }
         else
         {
-          estd::throw_error<std::invalid_argument>("Failed to parse artifact type [{}].", artifact->c_str());
+          artifact.type = artifact_types::excutable;
+          artifact.executable().append(g_cli_parameters.get_project_path());
+          artifact.executable().append(*executable);
         }
       }
       else
       {
-        project.artifact_type = artifact_types::static_library;
-      }
+        artifact_description& artifact = project.artifact;
+        artifact.preproduced = false;
 
-#pragma message("Clould add parsing of artifact type based on extension.")
-      if (const std::string* name = reader.artifact_name())
-      {
-        estd::log("FOUND: [{}]", project.name.c_str());
+        if (artifact_type)
+        {
+          const std::string type_name = *artifact_type;
 
-        estd::stack_string_512 path = g_cli_parameters.get_project_path();
-        path.append(*name);
-
-        project.artifact_name = path;
+          if (type_name == "Executable") artifact.type = artifact_types::excutable;
+          else if (type_name == "DynamicLibrary") artifact.type = artifact_types::dynamic_library;
+          else if (type_name == "StaticLibary") artifact.type = artifact_types::static_library;
+          else artifact.type = artifact_types::static_library;
+        }
+        else
+        {
+          artifact.type = artifact_types::static_library;
+        }
       }
 
       while (reader.has_next_dependency())

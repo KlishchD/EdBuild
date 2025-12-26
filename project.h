@@ -153,12 +153,15 @@ struct compilable_description
 
 using option_descriptions = std::vector<option_description>;
 using define_descriptions = std::vector<define_description>;
-using dependecy_libraries = std::vector<std::string>;
 using source_files = std::vector<compilable_description>;
 using include_files = std::vector<std::string>;
+using dependats_list = std::vector<std::size_t>;
 
 using command_string = estd::stack_string_8192;
 using commands_list = std::vector<command_string>;
+
+using dependant_subprojects_list = std::vector<std::size_t>;
+using ownership_list = std::vector<std::size_t>;
 
 enum class artifact_types : uint8_t
 {
@@ -167,44 +170,85 @@ enum class artifact_types : uint8_t
   dynamic_library
 };
 
+const char* get_type_name(artifact_types type)
+{
+  switch (type)
+  {
+  case artifact_types::excutable: return "Executable";
+  case artifact_types::static_library: return "StaticLibrary";
+  case artifact_types::dynamic_library: return "DynamicLibrary";
+  default: return "None";
+  }
+}
+
+struct artifact_description
+{
+  // Workaround, because you can not make a nice union with std::strings.
+  std::string field1;
+  std::string field2;
+
+  artifact_types type;
+  bool preproduced;
+
+  const std::string& input() const { return type == artifact_types::static_library ? static_library() : import_library(); }
+  const std::string& output() const { return field2; }
+
+  const std::string& import_library() const { return field1; };
+  std::string& import_library() { return field1; };
+
+  void import_library(const std::string& path) { field1 = path; }
+  void import_library(std::string&& path) { field1 = std::move(path); }
+
+  const std::string& dynamic_library() const { return field2; };
+  std::string& dynamic_library() { return field2; };
+
+  void dynamic_library(const std::string& path) { field2 = path; }
+  void dynamic_library(std::string&& path) { field2 = std::move(path); }
+
+  const std::string& static_library() const { return field2; };
+  std::string& static_library() { return field2; };
+
+  void static_library(const std::string& path) { field2 = path; }
+  void static_library(std::string&& path) { field2 = std::move(path); }
+
+  const std::string& executable() const { return field2; };
+  std::string& executable() { return field2; };
+
+  void executable(const std::string& path) { field2 = path; }
+  void executable(std::string&& path) { field2 = std::move(path); }
+};
+
+using artifact_dependencies_list = std::vector<artifact_description>;
+
 struct subproject_configuration
 {
   std::string name;
 
   option_descriptions options;
   define_descriptions defines;
-  dependecy_libraries dependencies;
 
   source_files sources;
   include_files includes;
   compilable_description precompile_header;
 
-  artifact_types artifact_type;
-  std::string artifact_name;
+  dependant_subprojects_list dependants;
+  artifact_dependencies_list artifact_dependencies;
 
-  bool has_precompile_header() const
-  {
-    return precompile_header.is_present();
-  }
+  std::size_t rank;
+  std::size_t original_rank;
+  std::size_t dependencies_count;
 
-  bool is_precompiled() const
-  {
-    return artifact_name.size();
-  }
+  artifact_description artifact;
 
-  bool produces_artifact() const
-  {
-    return !is_precompiled();
-  }
+  bool has_precompile_header() const { return precompile_header.is_present(); }
 
-  bool preproduced_artifact() const
-  {
-    return is_precompiled();
-  }
+  bool is_preproced() const { return artifact.preproduced; }
+  bool produces_artifact() const { return !artifact.preproduced; }
+  bool preproduced_artifact() const { return artifact.preproduced; }
 
   std::size_t get_compilables_count() const
   {
-    if (is_precompiled()) return 0;
+    if (is_preproced()) return 0;
     return sources.size() + has_precompile_header();
   }
 };
@@ -231,12 +275,23 @@ struct compilable_view
   }
 };
 
+struct build_configuration
+{
+  std::string name;
+  std::string subproject_name;
+};
+
+using build_configurations = std::vector<build_configuration>;
+
 struct project_configuration
 {
+  std::string name;
+
   subproject_configurations subprojects;
   option_descriptions options;
   define_descriptions defines;
-  std::string name;
+
+  build_configurations builds;
 
   bool has_precompile_header(std::size_t subproject_index) const
   {
@@ -432,7 +487,7 @@ struct project_configuration
           if (subproject_index < project->subprojects.size())
           {
             const auto& next_subrpoject = project->subprojects[subproject_index];
-            if (next_subrpoject.is_precompiled()) continue;
+            if (next_subrpoject.is_preproced()) continue;
 
             const bool has_compilables = next_subrpoject.get_compilables_count();
             if (has_compilables) break;
@@ -574,11 +629,10 @@ struct project_configuration
 #pragma message("Strange list ptr.")
   struct artifact_view
   {
-    const char* subproject_name;
-    const dependecy_libraries* dependencies;
+    const artifact_description* description;
+    const artifact_dependencies_list* dependencies;
     compilables_list compilables;
-    artifact_types type;
-    bool preproduced;
+    const char* subproject_name;
   };
 
   class artifacts_forward_iterator final
@@ -665,11 +719,10 @@ struct project_configuration
     const auto& subproject = subprojects[subproject_index];
 
     artifact_view view;
-    view.subproject_name = subproject.name.c_str();
+    view.description = &subproject.artifact;
+    view.dependencies = &subproject.artifact_dependencies;
     view.compilables = get_compilables(subproject_index);
-    view.dependencies = &subproject.dependencies;
-    view.type = subproject.artifact_type;
-    view.preproduced = subproject.preproduced_artifact();
+    view.subproject_name = subproject.name.c_str();
 
     return view;
   }
@@ -683,5 +736,3 @@ struct project_configuration
 #pragma message("Header only problems.")
 using compilables_list = project_configuration::compilables_list;
 using artifact_view = project_configuration::artifact_view;
-
-using dependencies_list = std::vector<const std::string*>;

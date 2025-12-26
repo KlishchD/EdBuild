@@ -32,12 +32,22 @@ public:
   virtual const std::string* next_dependency() = 0;
 
   virtual const std::string* precompile_header() const = 0;
+
   virtual const std::string* artifact_type() const = 0;
-  virtual const std::string* artifact_name() const = 0;
+  virtual const std::string* static_library() const = 0;
+  virtual const std::string* import_library() const = 0;
+  virtual const std::string* dynamic_library() const = 0;
+  virtual const std::string* executable() const = 0;
 
   virtual const std::string* project_name() const = 0;
 
   virtual bool is_subproject_valid() const = 0;
   virtual bool has_next_subproject() const = 0;
   virtual void next_subproject() = 0;
+
+  virtual bool has_next_build() const = 0;
+  virtual bool next_build() = 0;
+
+  virtual const std::string* build_name() const = 0;
+  virtual const std::string* build_subproject_name() const = 0;
 };

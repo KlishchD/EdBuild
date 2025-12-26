@@ -31,6 +31,11 @@ int32_t main(int32_t count, const char** arguments)
     parser.register_option_parser([](const std::string& name) { return name == "DisableWarnings" ? compiler_options::disable_warnings : static_cast<compiler_options>(-1); });
 
     project_configuration project = parser.parse(reader);
+    estd::log("\nProject name: {}.", project.name.c_str());
+    estd::log("Defines: {}.", project.defines.size());
+    estd::log("Options: {}.", project.options.size());
+    estd::log("Subprojects: {}.", project.subprojects.size());
+    estd::log("");
 
     tools().register_driver<caching_compiler_driver<clang_cl_translator>>();
     tools().register_driver<direct_linking_driver<lld_linker_translator>>();
@@ -41,17 +46,6 @@ int32_t main(int32_t count, const char** arguments)
 
     builder instance{ configuration };
     instance.build(project);
-
-    estd::log("\nProject name: {}.", project.name.c_str());
-    estd::log("Defines: {}.", project.defines.size());
-    estd::log("Options: {}.", project.options.size());
-    estd::log("Subprojects: {}.", project.subprojects.size());
-    for (const auto& subprojcet : project.subprojects)
-    {
-      estd::log("{} - {}: {}", static_cast<uint32_t>(subprojcet.artifact_type), subprojcet.name.c_str(), subprojcet.precompile_header.get_c_path());
-    }
-
-    estd::log("");
 
     targets().clean();
     platforms().clean();

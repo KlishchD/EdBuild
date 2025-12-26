@@ -18,6 +18,22 @@ public:
     }
   }
 
+  void prepare()
+  {
+    for (auto& driver : drivers)
+    {
+      driver->prepare();
+    }
+  }
+
+  void create_artifacts()
+  {
+    for (auto& driver : drivers)
+    {
+      driver->create_artifacts();
+    }
+  }
+
   commands_list generate_dependencies_update_commands() 
   {
     commands_list list;

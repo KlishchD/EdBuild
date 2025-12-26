@@ -8,6 +8,22 @@ public:
     tools.create_drivers(project, drivers);
   }
 
+  void create_artifacts()
+  {
+    for (auto& driver : drivers)
+    {
+      driver->create_artifacts();
+    }
+  }
+
+  void prepare()
+  {
+    for (auto& driver : drivers)
+    {
+      driver->prepare();
+    }
+  }
+
   commands_paritions generate_linking_commands()
   {
     commands_paritions partitions;

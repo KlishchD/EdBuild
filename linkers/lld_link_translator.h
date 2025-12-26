@@ -11,10 +11,12 @@ public:
 
   void compute_linking_command(const artifact_view& view, command_string& list)
   {
+    const artifact_description* artifact = view.description;
+
     list.append("lld-link ");
 
 #pragma message("Platform dependency.")
-    if (view.type == artifact_types::static_library)
+    if (artifact->type == artifact_types::static_library)
     {
       list.append("/lib ");
     }
@@ -31,30 +33,17 @@ public:
       list.push_back(' ');
     }
 
-    const char* output_extension = nullptr;
-    switch (view.type)
-    {
-    case artifact_types::excutable: output_extension = active_platform()->get_exectuable_extension(); break;
-    case artifact_types::static_library: output_extension = active_platform()->get_static_library_extension(); break;
-    case artifact_types::dynamic_library: output_extension = active_platform()->get_dynamic_library_extension(); break;
-    default:
-    }
-
     list.append("/out:");
-    list.append(g_cli_parameters.get_intermediate_path());
-    list.append(view.subproject_name);
-    list.append("\\");
-    list.append(view.subproject_name);
-    list.append(output_extension);
+    list.append(artifact->output());
 
-    const bool expects_dependencies = view.type != artifact_types::static_library;
+    const bool expects_dependencies = artifact->type != artifact_types::static_library;
     if (expects_dependencies)
     {
       list.push_back(' ');
 
-      for (const auto& dependency_library : *view.dependencies)
+      for (const auto& dependency_artifact : *view.dependencies)
       {
-        list.append(dependency_library);
+        list.append(dependency_artifact.input());
         list.push_back(' ');
       }
 

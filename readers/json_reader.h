@@ -6,7 +6,13 @@
 class json_reader : public input_reader
 {
 public:
-  json_reader(const estd::json& data) : data(data), subproject_index(0), option_index(0), define_index(0), source_index(0), include_index(0), dependency_index(0)
+  json_reader(const estd::json& data)
+    : data(data),
+    subproject_index(0),
+    option_index(0), define_index(0),
+    source_index(0), include_index(0),
+    dependency_index(0),
+    build_index(0)
   {
   }
 
@@ -164,12 +170,48 @@ public:
     return estd::fetch_value<std::string>(project, "ArtifactType");
   }
 
-  virtual const std::string* artifact_name() const override
+  virtual const std::string* static_library() const override
   {
     if (subproject_index == 0) return nullptr;
 
     const estd::json& project = get_current_project();
-    return estd::fetch_value<std::string>(project, "ArtifactName");
+    if (!project.contains("Artifact")) return nullptr;
+
+    const estd::json& artifact = project["Artifact"];
+    return estd::fetch_value<std::string>(artifact, "StaticLibrary");
+  }
+
+  virtual const std::string* import_library() const override
+  {
+    if (subproject_index == 0) return nullptr;
+
+    const estd::json& project = get_current_project();
+    if (!project.contains("Artifact")) return nullptr;
+
+    const estd::json& artifact = project["Artifact"];
+    return estd::fetch_value<std::string>(artifact, "ImportLibrary");
+  }
+
+  virtual const std::string* dynamic_library() const override
+  {
+    if (subproject_index == 0) return nullptr;
+
+    const estd::json& project = get_current_project();
+    if (!project.contains("Artifact")) return nullptr;
+
+    const estd::json& artifact = project["Artifact"];
+    return estd::fetch_value<std::string>(artifact, "DynamicLibrary");
+  }
+
+  virtual const std::string* executable() const override
+  {
+    if (subproject_index == 0) return nullptr;
+
+    const estd::json& project = get_current_project();
+    if (!project.contains("Artifact")) return nullptr;
+
+    const estd::json& artifact = project["Artifact"];
+    return estd::fetch_value<std::string>(artifact, "Executable");
   }
 
   virtual const std::string* project_name() const override
@@ -193,6 +235,39 @@ public:
   {
     return data["Projects"].size() >= subproject_index;
   }
+
+  virtual bool has_next_build() const override
+  {
+    return data["Builds"].size() >= build_index;
+  }
+
+  virtual bool next_build() override
+  {
+    ++build_index;
+    return build_index <= data["Builds"].size();
+  }
+
+  virtual const std::string* build_name() const override
+  {
+    if (build_index == 0) return nullptr;
+
+    const estd::json& builds = data["Builds"];
+    if (build_index > builds.size()) return nullptr;
+
+    const estd::json& build = builds[build_index - 1];
+    return estd::fetch_value<std::string>(build, "Name");
+  }
+
+  virtual const std::string* build_subproject_name() const override
+  {
+    if (build_index == 0) return nullptr;
+
+    const estd::json& builds = data["Builds"];
+    if (build_index > builds.size()) return nullptr;
+
+    const estd::json& build = builds[build_index - 1];
+    return estd::fetch_value<std::string>(build, "Project");
+  }
 protected:
   inline void reset()
   {
@@ -215,4 +290,5 @@ protected:
   std::size_t source_index;
   std::size_t include_index;
   std::size_t dependency_index;
+  std::size_t build_index;
 };

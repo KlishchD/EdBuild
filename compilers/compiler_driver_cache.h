@@ -6,7 +6,17 @@ template <compiler_translator translator_type>
 class compiler_translator_cache
 {
 public:
-  compiler_translator_cache(const project_configuration& project, const translator_type& translator)
+  compiler_translator_cache(const project_configuration& project, const translator_type& translator) : project(project), translator(translator)
+  { }
+
+  void clear()
+  {
+    project_suffix.clear();
+    subproject_suffixes.clear();
+    precompile_headers_suffixes.clear();
+  }
+
+  void build()
   {
     append_options(translator, project.options, project_suffix);
     append_defines(translator, project.defines, project_suffix);
@@ -66,6 +76,9 @@ private:
     }
   }
 private:
+  const project_configuration& project;
+  const translator_type& translator;
+
   command_string project_suffix;
   commands_list subproject_suffixes;
   commands_list precompile_headers_suffixes;

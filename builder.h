@@ -25,14 +25,26 @@ public:
 
   void build(project_configuration& project)
   {
+    compiler_orchestrator compilers(project, config.tools);
+    linker_orchestrator linkers(project, config.tools);
+
+    // Data is parsed, setting up and optimizing subproject.
+    create_artifacts(compilers, linkers, project);
+    organize_dependencies(project);
+
+    // Project is optimized, setting up orchestrators.
+    orchestrators_preparation(compilers, linkers);
+
+    // Building preparations.
     setup_directories(project);
 
-    compiler_orchestrator compilers(project, config.tools);
+    // Compiling.
     compilation_preparations(compilers, project);
     update_dependencies(compilers, project);
     filter(compilers, project);
     compile(compilers, project);
 
+    // Utilities.
     if (config.generate_compilation_database)
     {
       assemble_commands_database(compilers, project);
@@ -40,8 +52,11 @@ public:
 
     estd::log("\n\nStarting Linking:");
 
-    linker_orchestrator linkers(project, config.tools);
+    // Linking.
     link(linkers, project);
+
+
+    generate_builds(project);
   }
 
 protected:
@@ -76,33 +91,179 @@ protected:
     return executable_update_time > intermediate_update_time;
   }
 
+  void create_artifacts(compiler_orchestrator& compilers, linker_orchestrator& linkers, const project_configuration& project)
+  {
+    compilers.create_artifacts();
+    linkers.create_artifacts();
+
+    estd::log("Artifacts:");
+    for (const auto& subproject : project.subprojects)
+    {
+      const auto& artifact = subproject.artifact;
+
+      const char* status = artifact.preproduced ? "preproduced" : "generated";
+      const char* output = artifact.field2.c_str();
+      const char* input = artifact.field1.size() ? artifact.field1.c_str() : "None";
+      estd::log("{}: {}, {}, {}, {}.", subproject.name.c_str(), get_type_name(artifact.type), status, output, input);
+    }
+  }
+
+  void organize_dependencies(project_configuration& project)
+  {
+    estd::log("\nDistributing dependencies.");
+
+    // Set up graph.
+    const std::size_t subprojects_count = project.subprojects.size();
+    std::vector<std::size_t> supplies(subprojects_count, 0);
+    std::queue<std::size_t> distributors;
+
+    for (std::size_t subproject_index{ 0 }; subproject_index < subprojects_count; ++subproject_index)
+    {
+      auto& subproject = project.subprojects[subproject_index];
+      subproject.original_rank = subproject_index;
+      subproject.rank = 0;
+
+      const bool is_leaf_project = subproject.dependencies_count == 0;
+      if (is_leaf_project) distributors.push(subproject_index);
+    }
+
+    // Traverse and distribute needed dependencies.
+    while (distributors.size())
+    {
+      const std::size_t subproject_index = distributors.front();
+      distributors.pop();
+
+      const auto& distributor = project.subprojects[subproject_index];
+      const auto& distributor_includes = distributor.includes;
+      const auto& distributor_dependencies = distributor.artifact_dependencies;
+
+      estd::log("Processing distributor: {}, {}.", distributor.name.c_str(), distributor.dependants.size());
+
+      #pragma message("Redundant copy.")
+      for (const std::size_t dependant_index : distributor.dependants)
+      {
+        auto& dependant = project.subprojects[dependant_index];
+        auto& dependant_includes = dependant.includes;
+        auto& dependant_dependencies = dependant.artifact_dependencies;
+
+        estd::log("Processing dependant: {}.", dependant.name.c_str());
+
+        dependant_includes.insert(dependant_includes.end(), distributor_includes.begin(), distributor_includes.end());
+        dependant_dependencies.insert(dependant_dependencies.end(), distributor_dependencies.begin(), distributor_dependencies.end());
+        dependant_dependencies.push_back(distributor.artifact);
+
+        const std::size_t supplied = ++supplies[dependant_index];
+        const bool can_become_distributor = supplied == dependant.dependencies_count;
+        if (can_become_distributor)
+        {
+          dependant.rank = distributor.rank + 1;
+          distributors.push(dependant_index);
+        }
+      }
+    }
+
+    // Clean up dependencies.
+    for (auto& subproject : project.subprojects)
+    {
+      auto& includes = subproject.includes;
+      std::sort(includes.begin(), includes.end());
+
+      auto includes_it = std::unique(includes.begin(), includes.end());
+      includes.erase(includes_it, includes.end());
+
+      auto& dependencies = subproject.artifact_dependencies;
+      std::sort(dependencies.begin(), dependencies.end(),
+        [](const artifact_description& left, const artifact_description& right)
+        {
+          if (left.field1 == right.field1) return left.field2 < right.field2;
+          return left.field1 < right.field1;
+        });
+
+      auto dependencies_it = std::unique(dependencies.begin(), dependencies.end(),
+        [](const artifact_description& left, const artifact_description& right) {
+          return left.field1 == right.field1 && left.field2 == right.field2;
+        });
+
+      dependencies.erase(dependencies_it, dependencies.end());
+    }
+
+    // Reorder to help orchestrators.
+    #pragma message("Linking logic optimization possible, pass dependencies and rank the configuration.")
+    std::sort(project.subprojects.begin(), project.subprojects.end(),
+      [](const subproject_configuration& left, const subproject_configuration& right)
+        { return left.rank < right.rank; });
+
+    // Log state.
+    estd::log("\nReordered subprojects: ");
+    for (const auto& subproject : project.subprojects)
+    {
+      estd::log("Subproject [{}] was {} and became {} with {} dependencies and {} includes.",
+        subproject.name.c_str(),
+        subproject.original_rank, subproject.rank,
+        subproject.artifact_dependencies.size(), subproject.includes.size());
+    }
+
+    estd::log("\nDependencies: ");
+    for (const auto& subproject : project.subprojects)
+    {
+      estd::log("{}:", subproject.name.c_str());
+      for (const auto& artifact : subproject.artifact_dependencies)
+      {
+        estd::log("[{}] - [{}].", artifact.field1.c_str(), artifact.field2.c_str());
+      }
+    }
+  }
+
   void setup_directories(const project_configuration& project)
   {
     estd::log("Directory setup:");
 
     for (const auto& subprojects : project.subprojects)
     {
-      if (subprojects.is_precompiled()) continue;
+      if (subprojects.is_preproced()) continue;
 
       command_string path = g_cli_parameters.get_intermediate_path();
       path.append(subprojects.name);
 
       if (std::filesystem::exists(path.c_str()))
       {
-        estd::log("Directory detected: [{}].", path.c_str());
+        estd::log("Intermediate directory detected: [{}].", path.c_str());
       }
       else
       {
         std::filesystem::create_directories(path.c_str());
-        estd::log("Directory created: [{}].", path.c_str());
+        estd::log("Intermediate directory created: [{}].", path.c_str());
       }
     }
 
-    estd::log("");
+    for (const auto& build : project.builds)
+    {
+#pragma message("Platform dependant code.")
+      command_string path = g_cli_parameters.get_builds_path();
+      path.append(build.name);
+      path.append("\\");
+
+      if (std::filesystem::exists(path.c_str()))
+      {
+        std::filesystem::remove_all(path.c_str());
+        estd::log("Build directory cleared up: [{}].", path.c_str());
+      }
+
+      std::filesystem::create_directories(path.c_str());
+      estd::log("Build directory created: [{}].", path.c_str());
+    }
+  }
+
+  void orchestrators_preparation(compiler_orchestrator& compilers, linker_orchestrator& linkers)
+  {
+    estd::log("\nPreparing orchestrators.");
+    compilers.prepare();
+    linkers.prepare();
   }
 
   void compilation_preparations(compiler_orchestrator& orchestrator, project_configuration& project)
   {
+    compilables_count = 0;
     for (const auto& subrpoject : project.subprojects)
     {
       compilables_count += subrpoject.get_compilables_count();
@@ -213,6 +374,48 @@ protected:
     {
       estd::log("Partition {}:", partition_index);
       estd::async_shell_execute<32>(partition[partition_index], g_cli_parameters.get_threads_count());
+    }
+  }
+
+  void generate_builds(const project_configuration& project)
+  {
+    for (const auto& build : project.builds)
+    {
+#pragma message("Platform dependant code.")
+      estd::stack_string_512 build_path_string = g_cli_parameters.get_builds_path();
+      build_path_string.append(build.name);
+      build_path_string.append("\\");
+
+      std::filesystem::path build_path = build_path_string.c_str();
+
+      auto name_predicate = [&search_name = build.subproject_name](const subproject_configuration& subproject)
+        { return subproject.name == search_name; };
+
+      const auto& subprojects = project.subprojects;
+      auto subproject_it = std::find_if(subprojects.begin(), subprojects.end(), name_predicate);
+
+      estd::assert_condition(subproject_it != subprojects.end(),
+        "Failed to find subproject [{}] for build [{}] creation.",
+        build.subproject_name.c_str(), build.name.c_str());
+
+      const auto& subproject = *subproject_it;
+
+      for (const auto& artifact : subproject.artifact_dependencies)
+      {
+        const bool needs_moving = artifact.type == artifact_types::dynamic_library;
+        if (needs_moving)
+        {
+          std::filesystem::path artifact_path = artifact.dynamic_library();
+          std::filesystem::copy(artifact_path, build_path);
+        }
+      }
+
+      const bool needs_moving = subproject.artifact.type != artifact_types::static_library;
+      if (needs_moving)
+      {
+        std::filesystem::path artifact_path = subproject.artifact.output();
+        std::filesystem::copy(artifact_path, build_path);
+      }
     }
   }
 
