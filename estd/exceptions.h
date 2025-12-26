@@ -54,4 +54,10 @@ namespace estd
 
     return message ? message : "Failed to fetch error message.";
   }
+
+  template <typename... args_types>
+  inline void no_default(const std::format_string<args_types...> format, args_types... args)
+  {
+    throw_error<std::logic_error>(format, std::forward<args_types...>(args...));
+  }
 }
