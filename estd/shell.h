@@ -2,6 +2,15 @@
 
 namespace estd
 {
+  struct colors
+  {
+    static inline const char* red() { return "\x1b[31m"; }
+    static inline const char* green() { return "\x1b[32m"; }
+    static inline const char* yellow() { return "\x1b[33m"; }
+    static inline const char* blue() { return "\x1b[34m"; }
+    static inline const char* reset() { return "\x1b[0m"; }
+  };
+
 #pragma message("Platform specific code.")
   template <typename result_string_type, bool enable_debug_logging = true>
   class shell final
@@ -12,7 +21,7 @@ namespace estd
     {
       if constexpr (enable_debug_logging)
       {
-        estd::log("Executing command: {:.128}.", command.c_str());
+        estd::log("{}Executing command{}: {:.128}.", colors::green(), colors::reset(), command.c_str());
       }
 
       FILE* pipe = _popen(command.c_str(), "r");

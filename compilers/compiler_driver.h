@@ -51,7 +51,7 @@ public:
       {
         if (!view.is_source) continue;
 
-        estd::log("Dependency entry: [{}] [{}].", view.subproject_name, view.path);
+        estd::log("{}Dependency entry{}: [{}] [{}].", estd::colors::green(), estd::colors::reset(), view.subproject_name, view.path);
 
         command_string list_path = get_output_path(view);
         list_path.append(".deps");
@@ -107,7 +107,7 @@ public:
           if (!dependencies_were_not_updated) { view.status->set_dependencies_were_updated(); break; }
         } while (false);
 
-        estd::log("Filtering entry: [{}], [{}], [{}].", view.subproject_name, view.path, view.status->get_reason().c_str());
+        estd::log("{}Filtering entry{}: [{}], [{}], [{}].", estd::colors::green(), estd::colors::reset(), view.subproject_name, view.path, view.status->get_reason().c_str());
       }
     }
   }
@@ -120,7 +120,7 @@ public:
       {
         if (view.status->is_filtered())
         {
-          estd::log("Compilation entry: [{}] [{}].", view.subproject_name, view.path);
+          estd::log("{}Compilation entry{}: [{}] [{}].", estd::colors::green(), estd::colors::reset(), view.subproject_name, view.path);
 
           command_string command = translator.compute_compilation_command(view);
           cache.append_sufixes(view.subproject_index, view.is_source, command);

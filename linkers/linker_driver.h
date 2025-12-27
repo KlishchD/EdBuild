@@ -89,7 +89,7 @@ public:
 
       if (view.description->preproduced) continue;
 
-      estd::log("Linking entry: [{}].", view.subproject_name);
+      estd::log("{}Linking entry{}: [{}].", estd::colors::green(), estd::colors::reset(), view.subproject_name);
 
       command_string command;
       translator.compute_linking_command(view, command);

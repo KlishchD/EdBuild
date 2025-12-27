@@ -50,7 +50,7 @@ public:
       assemble_commands_database(compilers, project);
     }
 
-    estd::log("\n\nStarting Linking:");
+    estd::log("\n{}Starting Linking{}:", estd::colors::yellow(), estd::colors::reset());
 
     // Linking.
     link(linkers, project);
@@ -86,9 +86,9 @@ protected:
     }
 
     const auto executable_update_time = std::filesystem::last_write_time(executable_path);
-    estd::log("Executable path:          [{}].", executable_path);
-    estd::log("Intermediate update time: [{}].", intermediate_update_time);
-    estd::log("Executalbe update time:   [{}].", executable_update_time);
+    estd::log("{}Executable path{}:          [{}].", estd::colors::green(), estd::colors::reset(), executable_path);
+    estd::log("{}Intermediate update time{}: [{}].", estd::colors::green(), estd::colors::reset(), intermediate_update_time);
+    estd::log("{}Executalbe update time{}:   [{}].", estd::colors::green(), estd::colors::reset(), executable_update_time);
     estd::log("");
 
     return executable_update_time > intermediate_update_time;
@@ -99,7 +99,7 @@ protected:
     compilers.create_artifacts();
     linkers.create_artifacts();
 
-    estd::log("Artifacts:");
+    estd::log("{}Artifacts{}:", estd::colors::yellow(), estd::colors::reset());
     for (const auto& subproject : project.subprojects)
     {
       const auto& artifact = subproject.artifact;
@@ -107,13 +107,13 @@ protected:
       const char* status = artifact.preproduced ? "preproduced" : "generated";
       const char* output = artifact.field2.c_str();
       const char* input = artifact.field1.size() ? artifact.field1.c_str() : "None";
-      estd::log("{}: {}, {}, {}, {}.", subproject.name.c_str(), get_type_name(artifact.type), status, output, input);
+      estd::log("{}{}{}: {}, {}, {}, {}.", estd::colors::green(), subproject.name.c_str(), estd::colors::reset(), get_type_name(artifact.type), status, output, input);
     }
   }
 
   void organize_dependencies(project_configuration& project)
   {
-    estd::log("\nDistributing dependencies.");
+    estd::log("\n{}Distributing dependencies.{}", estd::colors::yellow(), estd::colors::reset());
 
     // Set up graph.
     const std::size_t subprojects_count = project.subprojects.size();
@@ -140,7 +140,7 @@ protected:
       const auto& distributor_includes = distributor.includes;
       const auto& distributor_dependencies = distributor.artifact_dependencies;
 
-      estd::log("Processing distributor: {}, {}.", distributor.name.c_str(), distributor.dependants.size());
+      estd::log("{}Processing distributor{}: {}, {}.", estd::colors::green(), estd::colors::reset(), distributor.name.c_str(), distributor.dependants.size());
 
       #pragma message("Redundant copy.")
       for (const std::size_t dependant_index : distributor.dependants)
@@ -149,7 +149,7 @@ protected:
         auto& dependant_includes = dependant.includes;
         auto& dependant_dependencies = dependant.artifact_dependencies;
 
-        estd::log("Processing dependant: {}.", dependant.name.c_str());
+        estd::log("{}Processing dependant{}: {}.", estd::colors::green(), estd::colors::reset(), dependant.name.c_str());
 
         dependant_includes.insert(dependant_includes.end(), distributor_includes.begin(), distributor_includes.end());
         dependant_dependencies.insert(dependant_dependencies.end(), distributor_dependencies.begin(), distributor_dependencies.end());
@@ -197,19 +197,22 @@ protected:
         { return left.rank < right.rank; });
 
     // Log state.
-    estd::log("\nReordered subprojects: ");
+    estd::log("\n{}Reordered subprojects{}: ", estd::colors::yellow(), estd::colors::reset());
     for (const auto& subproject : project.subprojects)
     {
-      estd::log("Subproject [{}] was {} and became {} with {} dependencies and {} includes.",
+      estd::log("{}{}{} was {} and became {} with {} dependencies and {} includes.",
+        estd::colors::green(),
         subproject.name.c_str(),
+        estd::colors::reset(),
         subproject.original_rank, subproject.rank,
         subproject.artifact_dependencies.size(), subproject.includes.size());
     }
 
-    estd::log("\nDependencies: ");
+    estd::log("\n{}Dependencies{}: ", estd::colors::yellow(), estd::colors::reset());
     for (const auto& subproject : project.subprojects)
     {
-      estd::log("{}:", subproject.name.c_str());
+      const char* description = subproject.artifact_dependencies.size() ? "" : "None.";
+      estd::log("{}{}{}: {}", estd::colors::green(), subproject.name.c_str(), estd::colors::reset(), description);
       for (const auto& artifact : subproject.artifact_dependencies)
       {
         estd::log("[{}] - [{}].", artifact.field1.c_str(), artifact.field2.c_str());
@@ -219,8 +222,7 @@ protected:
 
   void setup_directories(const project_configuration& project)
   {
-    estd::log("Directory setup:");
-
+    estd::log("\n{}Intermedite directory setup{}:", estd::colors::yellow(), estd::colors::reset());
     for (const auto& subprojects : project.subprojects)
     {
       if (subprojects.is_preproced()) continue;
@@ -230,15 +232,16 @@ protected:
 
       if (std::filesystem::exists(path.c_str()))
       {
-        estd::log("Intermediate directory detected: [{}].", path.c_str());
+        estd::log("{}Intermediate directory detected{}: [{}].", estd::colors::green(), estd::colors::reset(), path.c_str());
       }
       else
       {
         std::filesystem::create_directories(path.c_str());
-        estd::log("Intermediate directory created: [{}].", path.c_str());
+        estd::log("{}Intermediate directory created{}: [{}].", estd::colors::green(), estd::colors::reset(), path.c_str());
       }
     }
 
+    estd::log("\n{}Builds directory setup{}:", estd::colors::yellow(), estd::colors::reset());
     for (const auto& build : project.builds)
     {
 #pragma message("Platform dependant code.")
@@ -249,11 +252,11 @@ protected:
       if (std::filesystem::exists(path.c_str()))
       {
         std::filesystem::remove_all(path.c_str());
-        estd::log("Build directory cleared up: [{}].", path.c_str());
+        estd::log("{}Build directory cleared up{}: [{}].", estd::colors::green(), estd::colors::reset(), path.c_str());
       }
 
       std::filesystem::create_directories(path.c_str());
-      estd::log("Build directory created: [{}].", path.c_str());
+      estd::log("{}Build directory created{}: [{}].", estd::colors::green(), estd::colors::reset(), path.c_str());
     }
   }
 
@@ -272,11 +275,11 @@ protected:
       compilables_count += subrpoject.get_compilables_count();
     }
 
-    estd::log("Compilables detected: {}.\n", compilables_count);
+    estd::log("\n{}Compilables detected{}: {}.\n", estd::colors::yellow(), estd::colors::reset(), compilables_count);
 
     if (builder_was_updated)
     {
-      estd::log("Builder was updated, setting appropriate filtering status.\n");
+      estd::log("{}Builder was updated, setting appropriate filtering status{}.\n", estd::colors::yellow(), estd::colors::reset());
       for (compilable_view view : project.get_compilables())
       {
         view.status->set_builder_was_updated();
@@ -287,7 +290,7 @@ protected:
   void update_dependencies(compiler_orchestrator& orchestrator, project_configuration& project)
   {
     commands_list dependencies_list_commands = orchestrator.generate_dependencies_update_commands();
-    estd::log("Dependency list commands count: {}.\n", dependencies_list_commands.size());
+    estd::log("\n{}Dependency list commands count{}: {}.\n", estd::colors::yellow(), estd::colors::reset(), dependencies_list_commands.size());
 
     estd::async_shell_execute<32>(dependencies_list_commands, g_cli_parameters.get_threads_count());
   }
@@ -296,11 +299,11 @@ protected:
   {
     if (builder_was_updated)
     {
-      estd::log("Ignoring compiler filtering due to builder update which invalidated previous compilations.\n");
+      estd::log("{}Ignoring compiler filtering due to builder update which invalidated previous compilations.{}\n", estd::colors::yellow(), estd::colors::reset());
     }
     else
     {
-      estd::log("Performing per compiler filtering.\n");
+      estd::log("{}Performing per compiler filtering.{}\n", estd::colors::yellow(), estd::colors::reset());
       orchestrator.perform_compilation_filtering();
       estd::log("");
     }
@@ -310,17 +313,17 @@ protected:
   {
     commands_paritions partitions = orchestrator.generate_compilation_commands();
 
-    estd::log("Compilation partitions count: {}.", partitions.size());
+    estd::log("\n{}Compilation partitions count{}: {}.", estd::colors::yellow(), estd::colors::reset(), partitions.size());
     for (std::size_t partition_index{ 0 }; partition_index < partitions.size(); ++partition_index)
     {
-      estd::log("Compilation partition {} size: {}.", partition_index, partitions[partition_index].size());
+      estd::log("{}Compilation partition{}: {} - {}.", estd::colors::green(), estd::colors::reset(), partition_index, partitions[partition_index].size());
     }
 
     estd::log("");
 
     for (std::size_t partition_index{ 0 }; partition_index < partitions.size(); ++partition_index)
     {
-      estd::log("Partition {}:", partition_index);
+      estd::log("{}Partition {}{}:", estd::colors::yellow(), estd::colors::reset(), partition_index);
       estd::async_shell_execute<32>(partitions[partition_index], g_cli_parameters.get_threads_count());
     }
   }
@@ -364,18 +367,18 @@ protected:
   {
     commands_paritions partition = linkers.generate_linking_commands();
 
-    estd::log("Linking partitions count: {}.", partition.size());
+    estd::log("\n{}Linking partitions count{}: {}.", estd::colors::yellow(), estd::colors::reset(), partition.size());
     for (std::size_t partition_index{ 0 }; partition_index < partition.size(); ++partition_index)
     {
       const auto& commands = partition[partition_index];
-      estd::log("Linking partition {} size: {}.", partition_index, commands.size());
+      estd::log("{}Linking partition{}: {} - {}.", estd::colors::green(), estd::colors::reset(), partition_index, commands.size());
     }
 
     estd::log("");
 
     for (std::size_t partition_index{ 0 }; partition_index < partition.size(); ++partition_index)
     {
-      estd::log("Partition {}:", partition_index);
+      estd::log("{}Partition{} {}:", estd::colors::yellow(), estd::colors::reset(), partition_index);
       estd::async_shell_execute<32>(partition[partition_index], g_cli_parameters.get_threads_count());
     }
   }
