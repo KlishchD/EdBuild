@@ -62,6 +62,9 @@ public:
 protected:
   bool check_builder_update()
   {
+    const bool first_run = !std::filesystem::exists(g_cli_parameters.get_intermediate_path());
+    if (first_run) return true;
+
     constexpr std::size_t buffer_size = MAX_PATH;
     char executable_path[buffer_size];
 
