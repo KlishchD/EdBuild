@@ -20,6 +20,9 @@ namespace estd
   template <typename... args_types>
   inline void log(const std::format_string<args_types...>& format, args_types... args)
   {
+    static std::mutex lock;
+    std::lock_guard _(lock);
+
     constexpr bool logging_enabled = true;
     if constexpr (logging_enabled)
     {
