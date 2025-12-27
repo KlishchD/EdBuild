@@ -23,7 +23,6 @@ public:
       m_parameters.emplace_back(parameters[i], parameters[i + 1]);
     }
 
-    test_parameter<false>(strings::root_path_parameter_name);
     test_parameter<false>(strings::target_parameter_name);
     test_parameter<false>(strings::platform_parameter_name);
     test_parameter<false>(strings::intermediate_parameter_name);
@@ -48,11 +47,6 @@ public:
   bool contains(const char* name) const
   {
     return find(name) != nullptr;
-  }
-
-  inline const char* get_root_path() const
-  {
-    return find(strings::root_path_parameter_name);
   }
 
   char get_target() const

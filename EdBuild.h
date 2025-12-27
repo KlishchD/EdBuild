@@ -46,7 +46,6 @@ struct strings
   static constexpr uint32_t max_path_length = 260;
   static constexpr uint32_t default_local_string_legth = 512;
 
-  static constexpr const char* root_path_parameter_name = "-Root";
   static constexpr const char* target_parameter_name = "-Target";
   static constexpr const char* platform_parameter_name = "-Platform";
   static constexpr const char* intermediate_parameter_name = "-Intermediate";

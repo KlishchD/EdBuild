@@ -20,7 +20,7 @@ int32_t main(int32_t count, const char** arguments)
     estd::log("\nActive platform: ");
     active_platform()->dump();
 
-    estd::stack_string_512 instructions_path = g_cli_parameters.get_root_path();
+    estd::stack_string_512 instructions_path = g_cli_parameters.get_project_path();
     instructions_path.append(strings::instructions_path);
     estd::json instructions = estd::read_json(instructions_path);
 
