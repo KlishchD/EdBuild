@@ -11,6 +11,7 @@ namespace estd
   template <typename error_type, typename... args_types>
   inline void throw_error(const std::format_string<args_types...> format, args_types... args)
   {
+    estd::log(format, std::forward<args_types>(args)...);
     throw error_type(std::vformat(format.get(), std::make_format_args(args...)));
   }
 
@@ -24,7 +25,7 @@ namespace estd
     catch (const std::exception& exception)
     {
       estd::log(exception.what());
-      exit(1);
+      std::exit(1);
     }
   }
 
@@ -36,7 +37,7 @@ namespace estd
     {
       if (!condition)
       {
-        throw_error<std::logic_error>(format, args...);
+        throw_error<std::logic_error>(format, std::forward<args_types>(args)...);
       }
     }
   }
@@ -58,6 +59,6 @@ namespace estd
   template <typename... args_types>
   inline void no_default(const std::format_string<args_types...> format, args_types... args)
   {
-    throw_error<std::logic_error>(format, std::forward<args_types...>(args...));
+    throw_error<std::logic_error>(format, std::forward<args_types>(args)...);
   }
 }
