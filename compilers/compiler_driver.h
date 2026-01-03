@@ -93,13 +93,16 @@ public:
           const bool object_file_is_not_present = !std::filesystem::exists(target_path.c_str());
           if (object_file_is_not_present) { view.status->set_object_files_is_not_present(); break; }
 
+          const auto compilation_time = std::filesystem::last_write_time(target_path.c_str());
+          const auto compilable_update_time = std::filesystem::last_write_time(view.path);
+          const bool compilable_was_updated = compilable_update_time > compilation_time;
+          if (compilable_was_updated) { view.status->set_compilable_was_updated(); break; }
+
           command_string dependencies_list_path = get_output_path(view);
           dependencies_list_path.append(".deps");
 
           std::ifstream file(dependencies_list_path.c_str(), std::ios_base::in);
           estd::stack_string_512 line;
-
-          const auto compilation_time = std::filesystem::last_write_time(target_path.c_str());
 
           bool dependencies_were_not_updated = true;
           while (std::getline(file, line) && dependencies_were_not_updated)

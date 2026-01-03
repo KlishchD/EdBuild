@@ -26,7 +26,8 @@ class filter_status
   {
     object_files_is_not_present = 1,
     dependencies_were_updated,
-    builder_was_updated
+    builder_was_updated,
+    compilable_was_updated
   };
 public:
   filter_status() : status(0) {}
@@ -48,6 +49,7 @@ public:
     case object_files_is_not_present: return "Object file is not present.";
     case dependencies_were_updated: return "Dependencies were updated.";
     case builder_was_updated: return "Builder was updated.";
+    case compilable_was_updated: return "Compilable file itself was updated.";
     default:
       return "None";
     }
@@ -100,6 +102,11 @@ public:
   void set_builder_was_updated()
   {
     status = builder_was_updated;
+  }
+
+  void set_compilable_was_updated()
+  {
+    status = compilable_was_updated;
   }
 private:
   uint16_t status;
