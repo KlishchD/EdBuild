@@ -132,7 +132,17 @@ const char* get_type_color(error_types type)
 }
 
 using command_string = estd::stack_string_8192;
-using commands_list = std::vector<command_string>;
+using command_strings = std::vector<command_string>;
+
+using command_alias = estd::stack_string_512;
+
+struct command_description
+{
+   command_string value;
+   command_alias alias;
+};
+
+using commands_list = std::vector<command_description>;
 using command_output = std::string;
 
 class command_output_parser

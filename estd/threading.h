@@ -29,11 +29,11 @@ namespace estd
     }
   };
 
-  template <shell_async_parser parser_type, template <typename> typename collection, typename command_string_type>
+  template <shell_async_parser parser_type, template <typename> typename collection, typename command_type>
   class async_shell_execution_handler
   {
   public:
-    async_shell_execution_handler(const collection<command_string_type>& commands, parser_type& parser)
+    async_shell_execution_handler(const collection<command_type>& commands, parser_type& parser)
       : commands(commands), tasks_counter(0), parser(parser)
     { }
 
@@ -48,10 +48,18 @@ namespace estd
     void execute(std::size_t command_index, std::size_t thread_index)
     {
       const auto& command = commands[command_index];
-      estd::log("{}Executing command{}: {}.", colors::green(), colors::reset(), command.c_str());
+
+      if (command.alias.size())
+      {
+        estd::log("{}", command.alias.c_str());
+      }
+      else
+      {
+        estd::log("{}Executing command{}: {}.", colors::green(), colors::reset(), command.value.c_str());
+      }
 
       shell local_shell;
-      local_shell.run(command, parser, reinterpret_cast<const void*>(thread_index));
+      local_shell.run(command.value, parser, reinterpret_cast<const void*>(thread_index));
     }
 
     parser_type& get_parser()
@@ -59,7 +67,7 @@ namespace estd
       return parser;
     }
   protected:
-    const collection<command_string_type>& commands;
+    const collection<command_type>& commands;
     std::atomic<std::size_t> tasks_counter;
     parser_type& parser;
   };
@@ -97,8 +105,8 @@ namespace estd
     async_execute<threads_limit>(task, threads_count);
   }
 
-  template <std::size_t threads_limit, typename parser_type, template <typename> typename collection, typename command_string_type>
-  void async_shell_execute(const collection<command_string_type>& commands, parser_type& parser, std::size_t threads_count)
+  template <std::size_t threads_limit, typename parser_type, template <typename> typename collection, typename command_type>
+  void async_shell_execute(const collection<command_type>& commands, parser_type& parser, std::size_t threads_count)
   {
     async_shell_execution_handler handler(commands, parser);
 
@@ -106,8 +114,8 @@ namespace estd
     async_managed_execute<threads_limit>(handler, corrected_threads_count);
   }
 
-  template <std::size_t threads_limit, template <typename> typename collection, typename command_string_type>
-  void async_shell_execute(const collection<command_string_type>& commands, std::size_t threads_count)
+  template <std::size_t threads_limit, template <typename> typename collection, typename command_type>
+  void async_shell_execute(const collection<command_type>& commands, std::size_t threads_count)
   {
     default_async_shell_parser parser;
     async_shell_execution_handler handler(commands, parser);

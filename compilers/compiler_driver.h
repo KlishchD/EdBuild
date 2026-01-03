@@ -66,7 +66,13 @@ public:
 
         command_string command = translator.compute_dependecies_list_update_command(view);
         cache.append_sufixes(view.subproject_index, false, command);
-        list.push_back(std::move(command));
+
+        command_description result;
+        result.value = std::move(command);
+        result.alias = "Generating dependencies ";
+        result.alias.append(view.path);
+
+        list.push_back(std::move(result));
       }
     }
   }
@@ -127,8 +133,17 @@ public:
           command_string command = translator.compute_compilation_command(view);
           cache.append_sufixes(view.subproject_index, view.is_source, command);
 
+          command_description result;
+          result.value = std::move(command);
+          result.alias = "Compiling ";
+          if (!view.is_source)
+          {
+            result.alias.append("PCH ");
+          }
+          result.alias.append(view.path);
+
           commands_list& commands = partitions[view.is_source].commands;
-          commands.push_back(std::move(command));
+          commands.push_back(std::move(result));
         }
       }
     }
@@ -146,7 +161,13 @@ public:
 
           command_string command = translator.compute_database_entry_command(view);
           cache.append_sufixes(view.subproject_index, view.is_source, command);
-          list.push_back(std::move(command));
+
+          command_description result;
+          result.value = std::move(command);
+          result.alias = "Generating database entry for ";
+          result.alias.append(view.path);
+
+          list.push_back(std::move(result));
         }
       }
     }

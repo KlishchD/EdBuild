@@ -80,6 +80,6 @@ private:
   const translator_type& translator;
 
   command_string project_suffix;
-  commands_list subproject_suffixes;
-  commands_list precompile_headers_suffixes;
+  command_strings subproject_suffixes;
+  command_strings precompile_headers_suffixes;
 };

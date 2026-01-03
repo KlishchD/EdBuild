@@ -94,9 +94,14 @@ public:
       command_string command;
       translator.compute_linking_command(view, command);
 
+      command_description result;
+      result.value = std::move(command);
+      result.alias = "Linking ";
+      result.alias.append(view.subproject_name);
+
       commands_partition partition;
       partition.parser = translator.create_parser();
-      partition.commands.push_back(command);
+      partition.commands.push_back(std::move(result));
 
       partitions.push_back(std::move(partition));
     }
