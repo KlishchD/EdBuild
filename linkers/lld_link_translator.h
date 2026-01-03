@@ -33,6 +33,14 @@ public:
       list.push_back(' ');
     }
 
+    const bool is_executable = artifact->type == artifact_types::excutable;
+    const bool has_resources = artifact->resources.size();
+    if (is_executable && has_resources)
+    {
+      list.append(artifact->resources);
+      list.push_back(' ');
+    }
+
     list.append("/out:");
     list.append(artifact->output());
 

@@ -237,6 +237,12 @@ protected:
         {
           artifact.type = artifact_types::static_library;
         }
+
+        if (const std::string* resources = reader.resources())
+        {
+          artifact.resources.append(g_cli_parameters.get_project_path());
+          artifact.resources.append(*resources);
+        }
       }
 
       while (reader.has_next_dependency())

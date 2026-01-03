@@ -170,6 +170,14 @@ public:
     return estd::fetch_value<std::string>(project, "ArtifactType");
   }
 
+  virtual const std::string* resources() const override
+  {
+    if (subproject_index == 0) return nullptr;
+
+    const estd::json& project = get_current_project();
+    return estd::fetch_value<std::string>(project, "Resources");
+  }
+
   virtual const std::string* static_library() const override
   {
     if (subproject_index == 0) return nullptr;

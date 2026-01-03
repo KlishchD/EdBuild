@@ -34,6 +34,8 @@ public:
   virtual const std::string* precompile_header() const = 0;
 
   virtual const std::string* artifact_type() const = 0;
+  virtual const std::string* resources() const = 0;
+
   virtual const std::string* static_library() const = 0;
   virtual const std::string* import_library() const = 0;
   virtual const std::string* dynamic_library() const = 0;

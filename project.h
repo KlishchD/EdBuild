@@ -183,6 +183,7 @@ struct artifact_description
   // Workaround, because you can not make a nice union with std::strings.
   std::string field1;
   std::string field2;
+  std::string resources;
 
   artifact_types type;
   bool preproduced;
