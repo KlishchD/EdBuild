@@ -8,7 +8,7 @@ public:
   virtual void create_artifacts() = 0;
   virtual void prepare() = 0;
 
-  virtual void generate_linking_commands(commands_paritions& lists) = 0;
+  virtual void generate_linking_commands(commands_partitions& partitions) = 0;
   virtual ~linker_driver() = default;
 };
 
@@ -80,7 +80,7 @@ public:
     // Intentionally left empty.
   }
 
-  virtual void generate_linking_commands(commands_paritions& lists) override
+  virtual void generate_linking_commands(commands_partitions& partitions) override
   {
 #pragma message("Could improve performance by grouping static libraries in one partition.")
     for (std::size_t subproject_index : owned_subprojects)
@@ -93,7 +93,12 @@ public:
 
       command_string command;
       translator.compute_linking_command(view, command);
-      lists.push_back({ command });
+
+      commands_partition partition;
+      partition.parser = translator.create_parser();
+      partition.commands.push_back(command);
+
+      partitions.push_back(std::move(partition));
     }
   }
 protected:

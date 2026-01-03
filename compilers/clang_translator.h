@@ -1,5 +1,244 @@
 #pragma once
 
+#include "compiler_translator.h"
+
+class clang_output_parser : public compiler_output_parser
+{
+  struct feature
+  {
+    const char* start = nullptr;
+    const char* end = nullptr;
+    uint32_t aux = 0;
+
+    inline operator bool() const
+    {
+      return start && end;
+    }
+  };
+
+public:
+  clang_output_parser()
+    : result_mutex(), result(nullptr), thread_result(), policy(execution_policy::stop_on_error), active(true) {
+  }
+
+  virtual void set_output_store(compilation_results_list& list) override
+  {
+    result = &list;
+  }
+
+  virtual void set_threads_count(uint32_t threads_count) override
+  {
+    thread_result.resize(threads_count);
+  }
+
+  virtual void parse(const char* line, std::size_t length, const void* cookie) override
+  {
+    estd::assert_condition(result, "Attempting to parse compilation results without providing output storage.");
+
+    const std::size_t thread_index = reinterpret_cast<std::size_t>(cookie);
+    estd::assert_condition(thread_index < thread_result.size(),
+      "Using parser with more {} than expected threads {}.",
+      thread_index, thread_result.size());
+
+    compilation_result& local_result = thread_result[thread_index];
+
+    feature type_feature = find_type_feature(line, length);
+    feature include_feature = find_include_feature(line, length);
+
+    const bool has_error = bool(local_result);
+    const bool new_error_detected = bool(type_feature) || bool(include_feature);
+    if (new_error_detected && has_error) commit_thread_result(thread_index);
+
+    if (include_feature)
+    {
+      local_result.include_trail.append(line, length - 1);
+      return;
+    }
+
+    if (type_feature)
+    {
+      local_result.type = static_cast<error_types>(type_feature.aux);
+
+      feature path_feature = find_path_feature(line, length, type_feature);
+      if (path_feature)
+      {
+        local_result.file.append(path_feature.start, path_feature.end - path_feature.start);
+
+        feature line_feature = find_line_feature(line, length, path_feature);
+        feature comlumn_feature = find_column_feature(line, length, line_feature);
+
+        if (line_feature) local_result.line = estd::stoi(line_feature.start, line_feature.end);
+        if (comlumn_feature) local_result.column = estd::stoi(comlumn_feature.start, comlumn_feature.end);
+      }
+
+      feature message_feature = find_message_feature(line, length, type_feature);
+      local_result.message.append(message_feature.start, message_feature.end - message_feature.start);
+      estd::capitalize_inline(local_result.message[0]);
+
+      return;
+    }
+
+    local_result.auxiliary.append(line, length);
+
+    //estd::log("Thread {} got line [{:.{}}], {}, [{}].", thread_index, line, length, length, error_was_appened);
+  }
+
+  virtual void set_execution_policy(execution_policy new_policy) override
+  {
+    policy = new_policy;
+  }
+
+  virtual bool can_proceed() const override
+  {
+    return !result || active;
+  }
+
+  virtual void clean_up() override
+  {
+    for (compilation_result& local_result : thread_result)
+    {
+      if (local_result)
+      {
+        result->push_back(std::move(local_result));
+      }
+    }
+
+    active = true;
+    result = nullptr;
+  }
+protected:
+  feature find_type_feature(const char* line, std::size_t length) const
+  {
+    feature result;
+
+    struct pattern
+    {
+      const char* line;
+      uint32_t value;
+    };
+
+    pattern patterns[] = {
+      { "error:", static_cast<uint32_t>(error_types::error) },
+      { "warning:", static_cast<uint32_t>(error_types::warning) },
+      { "note:", static_cast<uint32_t>(error_types::note) },
+    };
+
+    for (const auto& pattern : patterns)
+    {
+      if (const char* match = strstr(line, pattern.line))
+      {
+        result.start = match;
+        result.end = match + strlen(pattern.line);
+        result.aux = pattern.value;
+        break;
+      }
+    }
+
+    return result;
+  }
+
+  feature find_include_feature(const char* line, std::size_t length) const
+  {
+    feature result;
+
+    if (strstr(line, "In file included from"))
+    {
+      result.start = line;
+      result.end = line + length;
+    }
+
+    return result;
+  }
+
+  feature find_path_feature(const char* line, std::size_t length, const feature& type_feature) const
+  {
+    feature result;
+
+    const bool path_omited = line == type_feature.start;
+    if (path_omited) return result;
+
+    result.start = line;
+    result.end = line;
+
+    while (result.end < type_feature.start)
+    {
+      const char* possible_end = strstr(result.end, "\\");
+      if (!possible_end || possible_end >= type_feature.start) break;
+
+      result.end = possible_end + 1;
+    }
+
+    result.end = strstr(result.end, "(");
+
+    return result;
+  }
+
+  feature find_line_feature(const char* line, std::size_t length, const feature& path_feature)
+  {
+    feature result;
+
+    if (path_feature.end[0] == '(')
+    {
+      result.start = path_feature.end + 1;
+      result.end = strstr(path_feature.end, ",");
+    }
+
+    return result;
+  }
+
+  feature find_column_feature(const char* line, std::size_t length, const feature& line_feature)
+  {
+    feature result;
+
+    if (line_feature)
+    {
+      result.start = line_feature.end + 1;
+      result.end = strstr(line_feature.end, ")");
+    }
+
+    return result;
+  }
+
+  feature find_message_feature(const char* line, std::size_t length, const feature& type_feature)
+  {
+    feature result;
+
+    result.start = type_feature.end + 1;
+    result.end = line + length;
+
+    return result;
+  }
+
+  void commit_thread_result(std::size_t thread_index)
+  {
+    compilation_result& local_result = thread_result[thread_index];
+
+    switch (policy)
+    {
+    case execution_policy::stop_on_error: active &= static_cast<uint32_t>(local_result.type) > static_cast<uint32_t>(error_types::error); break;
+    case execution_policy::stop_on_warning: active &= static_cast<uint32_t>(local_result.type) > static_cast<uint32_t>(error_types::warning); break;
+    case execution_policy::stop_on_note: active &= static_cast<uint32_t>(local_result.type) > static_cast<uint32_t>(error_types::note); break;
+    case execution_policy::stop_on_any: active = false; break;
+
+    case execution_policy::disregard_all:
+    default:
+      break;
+    }
+
+    std::lock_guard _(result_mutex);
+    result->push_back(std::move(local_result));
+  }
+
+protected:
+  std::mutex result_mutex;
+  compilation_results_list* result;
+
+  std::vector<compilation_result> thread_result;
+
+  execution_policy policy;
+  bool active;
+};
+
 class clang_translator
 {
 public:
@@ -68,6 +307,8 @@ public:
     result.append(get_output_path(view));
     result.append(view.extension);
 
+    result.append(" 2>&1");
+
     return result;
   }
 
@@ -102,6 +343,10 @@ public:
     return std::filesystem::last_write_time(path_view);
   }
 
+  command_output_parser_ptr create_parser() const
+  {
+    return std::make_shared<clang_output_parser>();
+  }
 private:
   inline command_string convert_option(const option_description& option) const
   {
@@ -260,6 +505,8 @@ public:
       result.append(view.extension);
     }
 
+    result.append(" 2>&1");
+
     return result;
   }
 
@@ -289,6 +536,10 @@ public:
     return std::filesystem::last_write_time(path_view);
   }
 
+  command_output_parser_ptr create_parser() const
+  {
+    return std::make_shared<clang_output_parser>();
+  }
 private:
   inline command_string convert_option(const option_description& option) const
   {

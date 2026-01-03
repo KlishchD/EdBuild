@@ -53,4 +53,9 @@ public:
       list.append("oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ");
     }
   }
+
+  command_output_parser_ptr create_parser()
+  {
+    return nullptr;
+  }
 };

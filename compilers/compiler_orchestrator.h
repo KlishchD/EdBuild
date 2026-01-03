@@ -55,20 +55,26 @@ public:
     }
   }
 
-  commands_paritions generate_compilation_commands()
+  commands_partitions generate_compilation_commands()
   {
-    commands_paritions lists(2);
+    commands_partitions partitions;
+
+    commands_partition precompiler_headers_partition;
+    precompiler_headers_partition.commands.reserve(project.subprojects.size());
+    partitions.push_back(std::move(precompiler_headers_partition));
+
+    commands_partition sources_partition;
+    sources_partition.commands.reserve(compilables_count);
+    partitions.push_back(std::move(sources_partition));
 
 #pragma message("Will need to generalize this, when time will come to add distribution.")
-    lists[0].reserve(project.subprojects.size());
-    lists[1].reserve(compilables_count);
 
     for (const auto& driver : drivers)
     {
-      driver->generate_compilation_commands(lists);
+      driver->generate_compilation_commands(partitions);
     }
 
-    return lists;
+    return partitions;
   }
   
   commands_list generate_database_entry_commands()

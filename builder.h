@@ -42,12 +42,27 @@ public:
     compilation_preparations(compilers, project);
     update_dependencies(compilers, project);
     filter(compilers, project);
-    compile(compilers, project);
 
-    // Utilities.
-    if (config.generate_compilation_database)
+    auto compilation_output = compile(compilers, project);
+    if (compilation_output.size())
     {
-      assemble_commands_database(compilers, project);
+      std::sort(compilation_output.begin(), compilation_output.end(),
+        [](const compilation_result& left, const compilation_result& right) {
+          return static_cast<uint32_t>(left.type) < static_cast<uint32_t>(right.type);
+        });
+
+      estd::log("\n{}Compilations results{}:", estd::colors::yellow(), estd::colors::reset());
+      for (const auto& output : compilation_output)
+      {
+        const char* name = get_type_name(output.type);
+        const char* color = get_type_color(output.type);
+
+        estd::log("{}{:7}{} [{:4}:{:4}] {:50}: {}",
+          color, name, estd::colors::reset(),
+          output.line, output.column,
+          output.file.c_str(),
+          output.message.c_str());
+      }
     }
 
     estd::log("\n{}Starting Linking{}:", estd::colors::yellow(), estd::colors::reset());
@@ -55,8 +70,14 @@ public:
     // Linking.
     link(linkers, project);
 
-
+    // Composition.
     generate_builds(project);
+
+    // Utilities.
+    if (config.generate_compilation_database)
+    {
+      assemble_commands_database(compilers, project);
+    }
   }
 
 protected:
@@ -309,23 +330,37 @@ protected:
     }
   }
 
-  void compile(compiler_orchestrator& orchestrator, project_configuration& project)
+  compilation_results_list compile(compiler_orchestrator& orchestrator, project_configuration& project)
   {
-    commands_paritions partitions = orchestrator.generate_compilation_commands();
+    commands_partitions partitions = orchestrator.generate_compilation_commands();
 
     estd::log("\n{}Compilation partitions count{}: {}.", estd::colors::yellow(), estd::colors::reset(), partitions.size());
     for (std::size_t partition_index{ 0 }; partition_index < partitions.size(); ++partition_index)
     {
-      estd::log("{}Compilation partition{}: {} - {}.", estd::colors::green(), estd::colors::reset(), partition_index, partitions[partition_index].size());
+      const auto& partition = partitions[partition_index];
+      estd::log("{}Compilation partition{}: {} - {}.", estd::colors::green(), estd::colors::reset(), partition_index, partition.get_commands_count());
     }
 
     estd::log("");
 
+    compilation_results_list results;
+
     for (std::size_t partition_index{ 0 }; partition_index < partitions.size(); ++partition_index)
     {
+      const auto& partition = partitions[partition_index];
+
+      compiler_output_parser& parser = *std::static_pointer_cast<compiler_output_parser>(partition.parser);
+      parser.set_output_store(results);
+      parser.set_threads_count(g_cli_parameters.get_threads_count());
+      parser.set_execution_policy(execution_policy::stop_on_error);
+
       estd::log("{}Partition {}{}:", estd::colors::yellow(), estd::colors::reset(), partition_index);
-      estd::async_shell_execute<32>(partitions[partition_index], g_cli_parameters.get_threads_count());
+      estd::async_shell_execute<32>(partition.commands, parser, g_cli_parameters.get_threads_count());
+
+      parser.clean_up();
     }
+
+    return results;
   }
 
   void assemble_commands_database(compiler_orchestrator& orchestrator, project_configuration& project)
@@ -365,21 +400,22 @@ protected:
 
   void link(linker_orchestrator& linkers, project_configuration& project)
   {
-    commands_paritions partition = linkers.generate_linking_commands();
+    commands_partitions partitions = linkers.generate_linking_commands();
 
-    estd::log("\n{}Linking partitions count{}: {}.", estd::colors::yellow(), estd::colors::reset(), partition.size());
-    for (std::size_t partition_index{ 0 }; partition_index < partition.size(); ++partition_index)
+    estd::log("\n{}Linking partitions count{}: {}.", estd::colors::yellow(), estd::colors::reset(), partitions.size());
+    for (std::size_t partition_index{ 0 }; partition_index < partitions.size(); ++partition_index)
     {
-      const auto& commands = partition[partition_index];
-      estd::log("{}Linking partition{}: {} - {}.", estd::colors::green(), estd::colors::reset(), partition_index, commands.size());
+      const auto& partition = partitions[partition_index];
+      estd::log("{}Linking partition{}: {} - {}.", estd::colors::green(), estd::colors::reset(), partition_index, partition.get_commands_count());
     }
 
     estd::log("");
 
-    for (std::size_t partition_index{ 0 }; partition_index < partition.size(); ++partition_index)
+    for (std::size_t partition_index{ 0 }; partition_index < partitions.size(); ++partition_index)
     {
+      const auto& partition = partitions[partition_index];
       estd::log("{}Partition{} {}:", estd::colors::yellow(), estd::colors::reset(), partition_index);
-      estd::async_shell_execute<32>(partition[partition_index], g_cli_parameters.get_threads_count());
+      estd::async_shell_execute<32>(partition.commands, g_cli_parameters.get_threads_count());
     }
   }
 

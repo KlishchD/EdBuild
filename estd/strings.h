@@ -29,6 +29,7 @@ namespace estd
     value_type data[capacity];
   };
 
+#pragma message("Need to improve (make work) capacity/size limit reached messages.")
   template<std::size_t capacity>
   class stack_string : public std::basic_string<char, std::char_traits<char>, estd::stack_allocator<char, capacity>>
   {
@@ -134,5 +135,43 @@ namespace estd
   void append_filename(const filename_string_type& filename, path_string_type& path)
   {
     append_filename(filename.c_str(), path);
+  }
+
+  char capitalize(char c)
+  {
+    return (c >= 'a' && c <= 'z') ? (c - 'a' + 'A') : c;
+  }
+
+  void capitalize_inline(char& c)
+  {
+    c = capitalize(c);
+  }
+
+  int32_t stoi(const char* start, const char* end)
+  {
+    const uint32_t width = end - start;
+    assert_condition(width < 10, "Number width [{:{}}] is too big for 32 bit integer.", start, width);
+
+    bool negative = false;
+    if (start[0] == '-')
+    {
+      ++start;
+      negative = true;
+
+      assert_condition(start != end, "Number must have at least one digit.");
+    }
+
+    int64_t store = 0;
+    for (const char* it = start; it != end; ++it)
+    {
+      assert_condition(std::isdigit(*it), "Number [{:{}}]must consist of only digits.", start, width);
+
+      store = (store * 10LL) + (*it - '0');
+    }
+
+    assert_condition(store > std::numeric_limits<int32_t>::min(), "Number [{}] is too small to be 32 bit integer.", store);
+    assert_condition(store < std::numeric_limits<int32_t>::max(), "Number [{}] is too big to be 32 bit integer.", store);
+
+    return negative ? -store : store;
   }
 }

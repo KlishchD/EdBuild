@@ -2,6 +2,17 @@
 
 namespace estd
 {
+  template <typename tested_type>
+  concept shell_output_parser = requires(tested_type object, const char* line, std::size_t length, const void* cookie) {
+    { object.parse(line, length, cookie) } -> std::same_as<void>;
+  };
+
+  struct default_shell_parser
+  {
+    void parse(const char* line, std::size_t length, const void* cookie)
+    { /* Intentionally left empty. */ }
+  };
+
   struct colors
   {
     static inline const char* red() { return "\x1b[31m"; }
@@ -12,36 +23,38 @@ namespace estd
   };
 
 #pragma message("Platform specific code.")
-  template <typename result_string_type, bool enable_debug_logging = true>
+  template <std::size_t line_capacity = 2048>
   class shell final
   {
   public:
-    template <typename input_string_type>
-    result_string_type run(input_string_type command)
+    template <typename command_string_type, shell_output_parser parser_type>
+    void run(command_string_type command, parser_type& parser, const void* cookie)
     {
-      if constexpr (enable_debug_logging)
-      {
-        estd::log("{}Executing command{}: {:.128}.", colors::green(), colors::reset(), command.c_str());
-      }
-
-      FILE* pipe = _popen(command.c_str(), "r");
+      FILE* pipe = _popen(command.c_str(), "rt");
       if (!pipe) throw_error<std::runtime_error>("Failed to open shell pipe.");
 
-      char buffer[result_string_type::get_static_capacity()] = { 0 };
+      estd::stack_string<line_capacity> line;
 
-      std::size_t total_length = 0;
-      char* start = buffer;
+      constexpr std::size_t buffer_capacity = 512;
+      char buffer[buffer_capacity];
 
-      while (true)
+      while (fgets(buffer, buffer_capacity, pipe))
       {
-        char* result = fgets(start, result_string_type::get_static_capacity() - total_length - 1, pipe);
-        if (!result) break;
+        for (std::size_t index{ 0 }; index < buffer_capacity; ++index)
+        {
+          const char symbol = buffer[index];
 
-        std::size_t length = strnlen(start, result_string_type::get_static_capacity() - total_length - 1);
-        start += length;
-        total_length += length;
+          const bool new_line = symbol == '\n';
+          const bool end_of_file = feof(pipe) && symbol == '\0';
+          if (new_line || end_of_file)
+          {
+            parser.parse(line.c_str(), line.size(), cookie);
+            line.clear();
+            break;
+          }
 
-        if (length == 0) break;
+          line.push_back(symbol);
+        }
       }
 
       if (ferror(pipe))
@@ -50,8 +63,19 @@ namespace estd
       }
 
       _pclose(pipe);
+    }
 
-      return buffer;
+    template <typename command_string_type, shell_output_parser parser_type>
+    void run(command_string_type command, parser_type parser)
+    {
+      run(command, parser, nullptr);
+    }
+
+    template <typename command_string_type>
+    void run(command_string_type command)
+    {
+      default_shell_parser parser;
+      run(command, parser, nullptr);
     }
   };
 }

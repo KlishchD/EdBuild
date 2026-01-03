@@ -2,8 +2,6 @@
 
 #include "compiler_driver_cache.h"
 
-using commands_paritions = std::vector<commands_list>;
-
 // Driver knows which projects it can work on and performs operations only on them.
 class compiler_driver
 {
@@ -14,7 +12,7 @@ public:
   virtual void generate_dependencies_update_commands(commands_list& list) const = 0;
   virtual void perform_compilation_filtering() = 0;
 
-  virtual void generate_compilation_commands(commands_paritions& lists) const = 0;
+  virtual void generate_compilation_commands(commands_partitions& lists) const = 0;
   virtual void generate_database_entry_commands(commands_list& list) const = 0;
 
   virtual ~compiler_driver() = default;
@@ -112,8 +110,12 @@ public:
     }
   }
   
-  virtual void generate_compilation_commands(commands_paritions& lists) const override
+  virtual void generate_compilation_commands(commands_partitions& partitions) const override
   {
+    auto parser = translator.create_parser();
+    partitions[0].parser = parser;
+    partitions[1].parser = parser;
+
     for (std::size_t subproject_index : owned_subprojects)
     {
       for (compilable_view view : project.get_compilables(subproject_index))
@@ -124,7 +126,9 @@ public:
 
           command_string command = translator.compute_compilation_command(view);
           cache.append_sufixes(view.subproject_index, view.is_source, command);
-          lists[view.is_source].push_back(std::move(command));
+
+          commands_list& commands = partitions[view.is_source].commands;
+          commands.push_back(std::move(command));
         }
       }
     }

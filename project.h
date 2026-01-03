@@ -157,9 +157,6 @@ using source_files = std::vector<compilable_description>;
 using include_files = std::vector<std::string>;
 using dependats_list = std::vector<std::size_t>;
 
-using command_string = estd::stack_string_8192;
-using commands_list = std::vector<command_string>;
-
 using dependant_subprojects_list = std::vector<std::size_t>;
 using ownership_list = std::vector<std::size_t>;
 

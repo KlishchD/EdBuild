@@ -24,9 +24,9 @@ public:
     }
   }
 
-  commands_paritions generate_linking_commands()
+  commands_partitions generate_linking_commands()
   {
-    commands_paritions partitions;
+    commands_partitions partitions;
     partitions.reserve(project.subprojects.size());
 
     for (auto& driver : drivers)

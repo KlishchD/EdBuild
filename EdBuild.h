@@ -91,6 +91,75 @@ struct strings
   }
 };
 
+enum class error_types
+{
+  error,
+  warning,
+  note,
+  unknown
+};
+
+enum class execution_policy
+{
+  stop_on_error,
+  stop_on_warning,
+  stop_on_note,
+  stop_on_any,
+  disregard_all
+};
+
+const char* get_type_name(error_types type)
+{
+  switch (type)
+  {
+  case error_types::note: return "Note";
+  case error_types::warning: return "Warning";
+  case error_types::error: return "Error";
+  case error_types::unknown: return "Unknown";
+  default: return "N/A";
+  }
+}
+
+const char* get_type_color(error_types type)
+{
+  switch (type)
+  {
+  case error_types::error: return estd::colors::red();
+  case error_types::warning: return estd::colors::yellow();
+  case error_types::note: return estd::colors::blue();
+  default: return estd::colors::reset();
+  }
+}
+
+using command_string = estd::stack_string_8192;
+using commands_list = std::vector<command_string>;
+using command_output = std::string;
+
+class command_output_parser
+{
+public:
+  virtual void parse(const char* line, std::size_t length, const void* cookie) = 0;
+  virtual void set_execution_policy(execution_policy policy) = 0;
+  virtual bool can_proceed() const = 0;
+  virtual ~command_output_parser() = default;
+};
+
+using command_output_parser_ptr = std::shared_ptr<command_output_parser>;
+
+struct commands_partition
+{
+  commands_list commands;
+  command_output_parser_ptr parser;
+
+  std::size_t get_commands_count() const
+  {
+    return commands.size();
+  }
+};
+
+using commands_partitions = std::vector<commands_partition>;
+
+
 #include "project.h"
 
 #include "cli.h"
