@@ -408,6 +408,7 @@ private:
   inline command_string convert_disable_warnings_option(const option_description& option) const
   {
     if (option.value == "1") return "-w";
+    if (option.value == "0") return "";
     estd::throw_error<std::invalid_argument>("Provided disable warnings value is not supported [{}].", option.value);
     return "";
   }
@@ -600,6 +601,7 @@ private:
   inline command_string convert_disable_warnings_option(const option_description& option) const
   {
     if (option.value == "1") return "/W0";
+    if (option.value == "0") return "";
     estd::throw_error<std::invalid_argument>("Provided disable warnings value is not supported [{}].", option.value);
     return "";
   }
