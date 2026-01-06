@@ -33,4 +33,10 @@ namespace estd
 
     return object;
   }
+
+  void write_json(const stack_string_512& path, const json& object)
+  {
+    std::ofstream file(path.c_str());
+    file << object.dump(2);
+  }
 }
