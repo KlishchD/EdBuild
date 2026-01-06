@@ -12,12 +12,32 @@ struct option_description
 {
   compiler_options type;
   std::string value;
+
+  uint32_t get_hash() const
+  {
+    uint32_t hash = 0;
+
+    hash = estd::crc32_append_enum(hash, type);
+    hash = estd::crc32_append_string(hash, value);
+
+    return hash;
+  }
 };
 
 struct define_description
 {
   std::string key;
   std::string value;
+
+  uint32_t get_hash() const
+  {
+    uint32_t hash = 0;
+
+    hash = estd::crc32_append_string(hash, key);
+    hash = estd::crc32_append_string(hash, value);
+
+    return hash;
+  }
 };
 
 class filter_status
@@ -27,7 +47,9 @@ class filter_status
     object_files_is_not_present = 1,
     dependencies_were_updated,
     builder_was_updated,
-    compilable_was_updated
+    compilable_was_updated,
+    project_hash_mismatch,
+    subproject_hash_mismatch
   };
 public:
   filter_status() : status(0) {}
@@ -35,11 +57,6 @@ public:
   filter_status(filter_status&& new_status) : status(new_status.status)
   {
     new_status.status = 0;
-  }
-
-  uint16_t get_status() const
-  {
-    return status;
   }
 
   std::string get_reason() const
@@ -50,64 +67,43 @@ public:
     case dependencies_were_updated: return "Dependencies were updated.";
     case builder_was_updated: return "Builder was updated.";
     case compilable_was_updated: return "Compilable file itself was updated.";
+    case project_hash_mismatch: return "Project has different hash.";
+    case subproject_hash_mismatch: return "Subproject has different hash.";
     default:
       return "None";
     }
   }
 
-  bool is_not_filtered() const
-  {
-    return status == 0;
-  }
+  uint16_t get_status() const { return status; }
+  inline bool is_not_filtered() const { return status == 0; }
+  inline bool is_filtered() const { return status; }
+  inline operator bool() const { return status; }
 
-  bool is_filtered() const
-  {
-    return status;
-  }
-
-  operator bool() const
-  {
-    return status;
-  }
-
-  filter_status& operator=(uint16_t new_status)
+  inline filter_status& operator=(uint16_t new_status)
   {
     status = new_status;
     return *this;
   }
 
-  filter_status& operator=(const filter_status& new_status)
+  inline filter_status& operator=(const filter_status& new_status)
   {
     status = new_status.status;
     return *this;
   }
 
-  filter_status& operator=(filter_status&& new_status)
+  inline filter_status& operator=(filter_status&& new_status)
   {
     status = new_status.status;
     new_status.status = 0;
     return *this;
   }
 
-  void set_object_files_is_not_present()
-  {
-    status = object_files_is_not_present;
-  }
-
-  void set_dependencies_were_updated()
-  {
-    status = dependencies_were_updated;
-  }
-
-  void set_builder_was_updated()
-  {
-    status = builder_was_updated;
-  }
-
-  void set_compilable_was_updated()
-  {
-    status = compilable_was_updated;
-  }
+  inline void set_object_files_is_not_present() { status = object_files_is_not_present; }
+  inline void set_dependencies_were_updated() { status = dependencies_were_updated; }
+  inline void set_builder_was_updated() { status = builder_was_updated; }
+  inline void set_compilable_was_updated() { status = compilable_was_updated; }
+  inline void set_project_hash_mismatch() { status = project_hash_mismatch; }
+  inline void set_subproject_hash_mismatch() { status = subproject_hash_mismatch; }
 private:
   uint16_t status;
 };
@@ -155,6 +151,11 @@ struct compilable_description
   const char* get_c_path() const
   {
     return path.c_str();
+  }
+
+  uint32_t get_hash() const
+  {
+    return estd::crc32_append_string(0, path);
   }
 };
 
@@ -245,6 +246,36 @@ struct subproject_configuration
 
   artifact_description artifact;
 
+  filter_status status;
+
+  uint32_t get_hash() const
+  {
+    uint32_t hash = 0;
+    hash = estd::crc32_append_string(hash, name);
+
+    for (const auto& option : options)
+    {
+      const uint32_t option_hash = option.get_hash();
+      hash = estd::crc32_append_generic(hash, option_hash);
+    }
+
+    for (const auto& define : defines)
+    {
+      const uint32_t define_hash = define.get_hash();
+      hash = estd::crc32_append_generic(hash, define_hash);
+    }
+
+    for (const auto& include : includes)
+    {
+      hash = estd::crc32_append_string(hash, include);
+    }
+
+    const uint32_t precompile_header_hash = precompile_header.get_hash();
+    hash = estd::crc32_append_generic(hash, precompile_header_hash);
+
+    return hash;
+  }
+
   bool has_precompile_header() const { return precompile_header.is_present(); }
 
   bool is_preproced() const { return artifact.preproduced; }
@@ -297,6 +328,28 @@ struct project_configuration
   define_descriptions defines;
 
   build_configurations builds;
+
+  filter_status status;
+
+  uint32_t get_hash() const
+  {
+    uint32_t hash = 0;
+    estd::crc32_append_string(hash, name);
+
+    for (const auto& option : options)
+    {
+      const uint32_t option_hash = option.get_hash();
+      hash = estd::crc32_append_generic(hash, option_hash);
+    }
+
+    for (const auto& define : defines)
+    {
+      const uint32_t define_hash = define.get_hash();
+      hash = estd::crc32_append_generic(hash, define_hash);
+    }
+
+    return hash;
+  }
 
   bool has_precompile_header(std::size_t subproject_index) const
   {

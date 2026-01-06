@@ -78,41 +78,52 @@ public:
   }
   
   virtual void perform_compilation_filtering() override
-  { 
+  {
     for (std::size_t subproject_index : owned_subprojects)
     {
+      const auto& subproject = project.subprojects[subproject_index];
+
       for (compilable_view view : project.get_compilables(subproject_index))
       {
-        if (view.status->is_filtered()) continue;
-
-        do
+        if (project.status.is_filtered())
         {
-          command_string target_path = get_output_path(view);
-          target_path.append(view.extension);
-
-          const bool object_file_is_not_present = !std::filesystem::exists(target_path.c_str());
-          if (object_file_is_not_present) { view.status->set_object_files_is_not_present(); break; }
-
-          const auto compilation_time = std::filesystem::last_write_time(target_path.c_str());
-          const auto compilable_update_time = std::filesystem::last_write_time(view.path);
-          const bool compilable_was_updated = compilable_update_time > compilation_time;
-          if (compilable_was_updated) { view.status->set_compilable_was_updated(); break; }
-
-          command_string dependencies_list_path = get_output_path(view);
-          dependencies_list_path.append(".deps");
-
-          std::ifstream file(dependencies_list_path.c_str(), std::ios_base::in);
-          estd::stack_string_512 line;
-
-          bool dependencies_were_not_updated = true;
-          while (std::getline(file, line) && dependencies_were_not_updated)
+          (*view.status) = project.status;
+        }
+        else if (subproject.status.is_filtered())
+        {
+          (*view.status) = subproject.status;
+        }
+        else
+        {
+          do
           {
-            std::filesystem::file_time_type update_time = translator.parse_update_time(line);
-            dependencies_were_not_updated = compilation_time > update_time;
-          }
+            command_string target_path = get_output_path(view);
+            target_path.append(view.extension);
 
-          if (!dependencies_were_not_updated) { view.status->set_dependencies_were_updated(); break; }
-        } while (false);
+            const bool object_file_is_not_present = !std::filesystem::exists(target_path.c_str());
+            if (object_file_is_not_present) { view.status->set_object_files_is_not_present(); break; }
+
+            const auto compilation_time = std::filesystem::last_write_time(target_path.c_str());
+            const auto compilable_update_time = std::filesystem::last_write_time(view.path);
+            const bool compilable_was_updated = compilable_update_time > compilation_time;
+            if (compilable_was_updated) { view.status->set_compilable_was_updated(); break; }
+
+            command_string dependencies_list_path = get_output_path(view);
+            dependencies_list_path.append(".deps");
+
+            std::ifstream file(dependencies_list_path.c_str(), std::ios_base::in);
+            estd::stack_string_512 line;
+
+            bool dependencies_were_not_updated = true;
+            while (std::getline(file, line) && dependencies_were_not_updated)
+            {
+              std::filesystem::file_time_type update_time = translator.parse_update_time(line);
+              dependencies_were_not_updated = compilation_time > update_time;
+            }
+
+            if (!dependencies_were_not_updated) { view.status->set_dependencies_were_updated(); break; }
+          } while (false);
+        }
 
         estd::log("{}Filtering entry{}: [{}], [{}], [{}].", estd::colors::green(), estd::colors::reset(), view.subproject_name, view.path, view.status->get_reason().c_str());
       }

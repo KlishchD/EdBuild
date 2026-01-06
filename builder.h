@@ -2,6 +2,7 @@
 
 #include "compilers/compiler_orchestrator.h"
 #include "linkers/linker_orchestrator.h"
+#include "builder_cache.h"
 
 class builder
 {
@@ -16,11 +17,10 @@ public:
     bool generate_compilation_database = true;
   };
 
-  builder(const configuration& config) : config(config), builder_was_updated(false)
+  builder(const configuration& config)
+    : config(config),
+    cache(g_cli_parameters.get_platform(), g_cli_parameters.get_target())
   {
-#pragma message("Platform dependent code.")
-
-    if (!config.ignore_builder_updates) builder_was_updated = check_builder_update();
   }
 
   void build(project_configuration& project)
@@ -70,6 +70,8 @@ public:
     // Linking.
     link(linkers, project);
 
+    cache.update_cache(project);
+
     // Composition.
     generate_builds(project);
 
@@ -81,40 +83,6 @@ public:
   }
 
 protected:
-  bool check_builder_update()
-  {
-    const bool first_run = !std::filesystem::exists(g_cli_parameters.get_intermediate_path());
-    if (first_run) return true;
-
-    constexpr std::size_t buffer_size = MAX_PATH;
-    char executable_path[buffer_size];
-
-    std::size_t size = GetModuleFileNameA(nullptr, executable_path, buffer_size);
-    estd::assert_condition(size, "Failed to fetch executable path.");
-
-    auto intermediate_update_time = std::filesystem::file_time_type::max();
-    auto intermediate_iterator = std::filesystem::recursive_directory_iterator(g_cli_parameters.get_intermediate_path());
-    for (const std::filesystem::directory_entry& entry : intermediate_iterator)
-    {
-      std::filesystem::path extension = entry.path().extension();
-      //estd::log("[{}] <-> [{}]", entry.path().string().c_str(), extension.string().c_str());
-
-      if (extension == ".obj" || extension == ".pch")
-      {
-        //estd::log("ENTERED!!!");
-        intermediate_update_time = std::min(intermediate_update_time, entry.last_write_time());
-      }
-    }
-
-    const auto executable_update_time = std::filesystem::last_write_time(executable_path);
-    estd::log("{}Executable path{}:          [{}].", estd::colors::green(), estd::colors::reset(), executable_path);
-    estd::log("{}Intermediate update time{}: [{}].", estd::colors::green(), estd::colors::reset(), intermediate_update_time);
-    estd::log("{}Executalbe update time{}:   [{}].", estd::colors::green(), estd::colors::reset(), executable_update_time);
-    estd::log("");
-
-    return executable_update_time > intermediate_update_time;
-  }
-
   void create_artifacts(compiler_orchestrator& compilers, linker_orchestrator& linkers, const project_configuration& project)
   {
     compilers.create_artifacts();
@@ -297,15 +265,6 @@ protected:
     }
 
     estd::log("\n{}Compilables detected{}: {}.\n", estd::colors::yellow(), estd::colors::reset(), compilables_count);
-
-    if (builder_was_updated)
-    {
-      estd::log("{}Builder was updated, setting appropriate filtering status{}.\n", estd::colors::yellow(), estd::colors::reset());
-      for (compilable_view view : project.get_compilables())
-      {
-        view.status->set_builder_was_updated();
-      }
-    }
   }
   
   void update_dependencies(compiler_orchestrator& orchestrator, project_configuration& project)
@@ -318,16 +277,34 @@ protected:
 
   void filter(compiler_orchestrator& orchestrator, project_configuration& project)
   {
+    estd::log("{}Performing per compiler filtering.{}\n", estd::colors::yellow(), estd::colors::reset());
+
+    std::string builder_path = estd::fetch_executable_path();
+    const auto builder_update_time = std::filesystem::last_write_time(builder_path);
+    const bool builder_was_updated = cache.is_build_outdated(builder_update_time);
+
     if (builder_was_updated)
     {
-      estd::log("{}Ignoring compiler filtering due to builder update which invalidated previous compilations.{}\n", estd::colors::yellow(), estd::colors::reset());
+      project.status.set_builder_was_updated();
+    }
+    else if (cache.is_hash_outdated(project))
+    {
+      project.status.set_project_hash_mismatch();
     }
     else
     {
-      estd::log("{}Performing per compiler filtering.{}\n", estd::colors::yellow(), estd::colors::reset());
-      orchestrator.perform_compilation_filtering();
-      estd::log("");
+      for (auto& subproject : project.subprojects)
+      {
+        if (cache.is_hash_outdated(subproject))
+        {
+          subproject.status.set_subproject_hash_mismatch();
+        }
+      }
     }
+
+    estd::log("");
+    orchestrator.perform_compilation_filtering();
+    estd::log("");
   }
 
   compilation_results_list compile(compiler_orchestrator& orchestrator, project_configuration& project)
@@ -463,6 +440,11 @@ protected:
 
 protected:
   const configuration& config;
-  bool builder_was_updated;
+  builder_cache cache;
+
+  std::string build_entry;
+
   std::size_t compilables_count;
+
+  bool instructions_were_updated;
 };

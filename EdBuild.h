@@ -38,6 +38,8 @@
 #include "estd/threading.h"
 #include "estd/memory.h"
 #include "estd/json.h"
+#include "estd/hasing.h"
+#include "estd/platform.h"
 
 struct strings
 {
@@ -130,6 +132,9 @@ const char* get_type_color(error_types type)
   default: return estd::colors::reset();
   }
 }
+
+using file_clock = std::chrono::file_clock;
+using file_time = std::filesystem::file_time_type;
 
 using command_string = estd::stack_string_8192;
 using command_strings = std::vector<command_string>;
