@@ -1,1 +1,1 @@
-clang main.cpp -o EdBuild.exe -std=c++26 -g -O3 -I. -Wall -Wuninitialized
+clang main.cpp -o EdBuild.exe -std=c++26 -g -O3 -I. -Wall -Wuninitialized -Werror=return-type
