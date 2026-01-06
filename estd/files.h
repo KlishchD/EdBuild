@@ -38,6 +38,8 @@ namespace estd
   template <typename string_type>
   void read_file_full(const string_type& absolute_path, char** out_buffer, uint32_t& out_file_size)
   {
+    #pragma message("This should be done using C++ api, no need for C here.")
+
     FILE* file;
     fopen_s(&file, absolute_path.c_str(), "rb");
 
@@ -69,6 +71,8 @@ namespace estd
         throw_error<std::logic_error>("Failed to read the whole file with a code ({}) and a reason ({}).", error_code, error_message);
       }
     }
+
+    fclose(file);
 
     (*out_buffer) = buffer;
     out_file_size = file_size;
