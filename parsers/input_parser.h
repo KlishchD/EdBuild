@@ -18,12 +18,19 @@ public:
   {
     estd::log("Project parsing starts.");
 
+    if (!reader.is_project_name_present()) estd::throw_error<std::logic_error>("'Name' string must be present in the instructions list.");
+    if (!reader.is_globals_list_present()) estd::throw_error<std::logic_error>("'Globals' list must be present in the instructions list.");
+    if (!reader.is_projects_list_present()) estd::throw_error<std::logic_error>("'Projects' list must be present in the instructions list.");
+    if (!reader.is_builds_list_present()) estd::throw_error<std::logic_error>("'Builds' list must be resent in the instructions list");
+
     std::vector<dependencies_list> dependencies_lists;
     dependencies_list temporary_dependencies;
 
     project_configuration project;
     parse_project(reader, project, temporary_dependencies);
     reader.next_subproject();
+
+    estd::log("Globals parsed.");
 
     // TODO: Can reserve here.
     while (reader.is_subproject_valid())
@@ -107,14 +114,17 @@ protected:
   template <typename project_type>
   inline void parse_project(input_reader& reader, project_type& project, dependencies_list& dependencies) const
   {
+    estd::log("Started parsing project.");
     project.name = *reader.project_name();
 
+    estd::log("Parsing project options.");
     while (reader.has_next_option())
     {
       std::optional<input_reader::option_data> option = reader.next_option();
       if (option.has_value()) project.options.push_back(std::move(parse_option(option.value())));
     }
 
+    estd::log("Parsing project defines.");
     while (reader.has_next_define())
     {
       std::optional<input_reader::define_data> define = reader.next_define();

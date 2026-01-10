@@ -16,6 +16,11 @@ public:
     const std::string* value;
   };
 
+  virtual bool is_project_name_present() const = 0;
+  virtual bool is_globals_list_present() const = 0;
+  virtual bool is_projects_list_present() const = 0;
+  virtual bool is_builds_list_present() const = 0;
+
   virtual bool has_next_option() const = 0;
   virtual std::optional<option_data> next_option() = 0;
 

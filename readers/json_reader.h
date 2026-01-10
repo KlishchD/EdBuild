@@ -16,6 +16,26 @@ public:
   {
   }
 
+  virtual bool is_project_name_present() const override
+  {
+    return data.contains("Name");
+  }
+
+  virtual bool is_globals_list_present() const override
+  {
+    return data.contains("Globals");
+  }
+
+  virtual bool is_projects_list_present() const override
+  {
+    return data.contains("Projects");
+  }
+
+  virtual bool is_builds_list_present() const override
+  {
+    return data.contains("Builds");
+  }
+
   virtual bool has_next_option() const override
   {
     const estd::json& project = get_current_project();
@@ -288,7 +308,7 @@ protected:
 
   inline const estd::json& get_current_project() const
   {
-    return subproject_index == 0 ? data["Global"] : data["Projects"][subproject_index - 1];
+    return subproject_index == 0 ? data["Globals"] : data["Projects"][subproject_index - 1];
   }
 protected:
   const estd::json& data;
