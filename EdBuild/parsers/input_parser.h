@@ -18,6 +18,8 @@ public:
   {
     estd::log("Project parsing starts.");
 
+#pragma message("Need to validate basic data for the compiles like version etc.")
+
     if (!reader.is_project_name_present()) estd::throw_error<std::logic_error>("'Name' string must be present in the instructions list.");
     if (!reader.is_globals_list_present()) estd::throw_error<std::logic_error>("'Globals' list must be present in the instructions list.");
     if (!reader.is_projects_list_present()) estd::throw_error<std::logic_error>("'Projects' list must be present in the instructions list.");

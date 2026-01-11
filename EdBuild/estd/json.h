@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dependencies\nlohmann_json\single_include\\nlohmann\\json.hpp"
+#include "nlohmann\json.hpp"
 #include "files.h"
 
 namespace estd

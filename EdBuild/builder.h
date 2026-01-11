@@ -405,6 +405,8 @@ protected:
       build_path_string.append(build.name);
       build_path_string.append("\\");
 
+      estd::log("Generating [{}] build.", build.name.c_str());
+
       std::filesystem::path build_path = build_path_string.c_str();
 
       auto name_predicate = [&search_name = build.subproject_name](const subproject_configuration& subproject)

@@ -283,7 +283,7 @@ public:
 
   command_string compute_dependecies_list_update_command(const compilable_view& view) const
   {
-    command_string command = "clang++ -MM ";
+    command_string command = "clang++ -w -MM ";
     command.append(view.path);
     command.append(" -MF ");
     command.append(get_output_path(view));
@@ -369,7 +369,8 @@ private:
         { "11", "-std=c++11" },
         { "17", "-std=c++17" },
         { "20", "-std=c++20" },
-        { "23", "-std=c++23" }
+        { "23", "-std=c++23" },
+        { "26", "-std=c++26" }
     };
 
     for (const auto& standard : supported_standards)
@@ -462,7 +463,7 @@ public:
   command_string compute_dependecies_list_update_command(const compilable_view& view) const
   {
 #pragma message("Add exceptions logic as a separate option.")
-    command_string command = "clang-cl /TP /EHa /showIncludes:user /P ";
+    command_string command = "clang-cl /TP /w /EHa /showIncludes:user /P ";
     command.append(view.path);
     command.append(" /Fi");
     command.append(get_output_path(view));
@@ -562,7 +563,8 @@ private:
     constexpr const char* supported_standards[][2] = {
         { "11", "/std:c++11" },
         { "17", "/std:c++17" },
-        { "20", "/std:c++20" }
+        { "20", "/std:c++20" },
+        { "Latest", "/std:c++latest" }
     };
 
     for (const auto& standard : supported_standards)

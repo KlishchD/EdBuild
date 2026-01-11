@@ -57,6 +57,7 @@ namespace estd
       {
         estd::log("{}Executing command{}: {}.", colors::green(), colors::reset(), command.value.c_str());
       }
+      estd::log("{}Executing command{}: {}.", colors::green(), colors::reset(), command.value.c_str());
 
       shell local_shell;
       local_shell.run(command.value, parser, reinterpret_cast<const void*>(thread_index));

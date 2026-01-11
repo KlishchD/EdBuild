@@ -1,0 +1,28 @@
+{
+  "Name": "EdBuild",
+  "Globals": {
+    "Options": [
+      {
+        "Name": "C++",
+        "Value": "Latest"
+      }
+    ],
+    "Defines": [
+
+    ]
+  },
+  "Projects": [
+    {
+      "Name": "EdBuild",
+      "Sources": [ "EdBuild" ],
+      "Includes": [ "dependencies\\nlohmann_json\\single_include" ],
+      "ArtifactType": "Executable"
+    }
+  ],
+  "Builds": [
+    {
+      "Name": "EdBuild",
+      "Project": "EdBuild"
+    }
+  ]
+}
