@@ -1,0 +1,8 @@
+Builds
+Intermediate
+Resources
+test
+.vs
+*.ilk
+*.pdb
+*.rdi
