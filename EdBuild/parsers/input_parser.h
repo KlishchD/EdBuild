@@ -141,7 +141,7 @@ protected:
         if (!source) continue;
 
         estd::stack_string_1024 path;
-        path.append(g_cli_parameters.get_project_path());
+        path.append(cli().get_project_path());
         path.append(source->c_str());
 
         if (std::filesystem::is_directory(path.c_str()))
@@ -158,7 +158,7 @@ protected:
         if (!include) continue;
 
         estd::stack_string_1024 path;
-        path.append(g_cli_parameters.get_project_path());
+        path.append(cli().get_project_path());
         path.append(include->c_str());
 
         project.includes.push_back(path.c_str());
@@ -167,7 +167,7 @@ protected:
       if (const std::string* precompile_header = reader.precompile_header())
       {
         estd::stack_string_1024 path;
-        path.append(g_cli_parameters.get_project_path());
+        path.append(cli().get_project_path());
         path.append(precompile_header->c_str());
 
         const bool path_is_not_present = !std::filesystem::exists(path.c_str());
@@ -208,7 +208,7 @@ protected:
         if (preproduced_static_library)
         {
           artifact.type = artifact_types::static_library;
-          artifact.static_library().append(g_cli_parameters.get_project_path());
+          artifact.static_library().append(cli().get_project_path());
           artifact.static_library().append(*static_library);
         }
         else if (preproduced_dynamic_library)
@@ -217,17 +217,17 @@ protected:
 
           if (import_library)
           {
-            artifact.import_library().append(g_cli_parameters.get_project_path());
+            artifact.import_library().append(cli().get_project_path());
             artifact.import_library().append(*import_library);
           }
 
-          artifact.dynamic_library().append(g_cli_parameters.get_project_path());
+          artifact.dynamic_library().append(cli().get_project_path());
           artifact.dynamic_library().append(*dynamic_library);
         }
         else
         {
           artifact.type = artifact_types::excutable;
-          artifact.executable().append(g_cli_parameters.get_project_path());
+          artifact.executable().append(cli().get_project_path());
           artifact.executable().append(*executable);
         }
       }
@@ -252,7 +252,7 @@ protected:
 
         if (const std::string* resources = reader.resources())
         {
-          artifact.resources.append(g_cli_parameters.get_project_path());
+          artifact.resources.append(cli().get_project_path());
           artifact.resources.append(*resources);
         }
       }

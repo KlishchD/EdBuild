@@ -1,5 +1,6 @@
 #pragma once
 
+#include "cli.h"
 #include "linker_translator.h"
 
 class linker_driver
@@ -37,7 +38,7 @@ public:
       {
       case artifact_types::static_library:
       {
-        artifact.static_library().append(g_cli_parameters.get_intermediate_path());
+        artifact.static_library().append(cli().get_intermediate_path());
         artifact.static_library().append(subproject.name);
         artifact.static_library().append("\\");
         artifact.static_library().append(subproject.name);
@@ -46,13 +47,13 @@ public:
       }
       case artifact_types::dynamic_library:
       {
-        artifact.import_library().append(g_cli_parameters.get_intermediate_path());
+        artifact.import_library().append(cli().get_intermediate_path());
         artifact.import_library().append(subproject.name);
         artifact.static_library().append("\\");
         artifact.import_library().append(subproject.name);
         artifact.import_library().append(active_platform()->get_static_library_extension());
 
-        artifact.dynamic_library().append(g_cli_parameters.get_intermediate_path());
+        artifact.dynamic_library().append(cli().get_intermediate_path());
         artifact.dynamic_library().append(subproject.name);
         artifact.static_library().append("\\");
         artifact.dynamic_library().append(subproject.name);
@@ -62,7 +63,7 @@ public:
       }
       case artifact_types::excutable:
       {
-        artifact.executable().append(g_cli_parameters.get_intermediate_path());
+        artifact.executable().append(cli().get_intermediate_path());
         artifact.executable().append(subproject.name);
         artifact.static_library().append("\\");
         artifact.executable().append(subproject.name);

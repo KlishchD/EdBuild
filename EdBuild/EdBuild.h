@@ -110,7 +110,7 @@ enum class execution_policy
   disregard_all
 };
 
-const char* get_type_name(error_types type)
+inline const char* get_type_name(error_types type)
 {
   switch (type)
   {
@@ -122,7 +122,7 @@ const char* get_type_name(error_types type)
   }
 }
 
-const char* get_type_color(error_types type)
+inline const char* get_type_color(error_types type)
 {
   switch (type)
   {
@@ -174,22 +174,8 @@ struct commands_partition
 
 using commands_partitions = std::vector<commands_partition>;
 
-
-#include "project.h"
-
-#include "cli.h"
-
 #pragma message("Needs better organization.")
-inline command_string get_output_path(const compilable_view& view)
-{
-  command_string result = g_cli_parameters.get_intermediate_path();
-  result.append(view.subproject_name);
-  append_filename(view.path, result);
-
-  return result;
-}
-
-void append_file_data(const command_string& filepath, std::string& store)
+inline void append_file_data(const command_string& filepath, std::string& store)
 {
   std::ifstream file(filepath.c_str(), std::ios_base::in);
 
@@ -200,50 +186,14 @@ void append_file_data(const command_string& filepath, std::string& store)
   }
 }
 
-void dump_to_file(const command_string& filepath, const std::string& data)
+inline void dump_to_file(const command_string& filepath, const std::string& data)
 {
   std::ofstream file(filepath.c_str(), std::ios_base::out);
   file << data;
 }
 
-#include "tools_registry.h"
-#include "builder.h"
-
-#include "readers/json_reader.h"
-#include "parsers/input_parser.h"
-
 inline estd::memory_report& builder_memory_report()
 {
   static estd::memory_report instance;
   return instance;
-}
-
-void* operator new(size_t size)
-{
-  if (size == 0)
-  {
-    estd::throw_error<std::invalid_argument>("Can not allocate 0 bytes of memory.");
-  }
-
-  builder_memory_report().allocate(size);
-
-  uint32_t* header = reinterpret_cast<uint32_t*>(malloc(size + sizeof(uint32_t)));
-  if (!header)
-  {
-    estd::throw_error<std::logic_error>("Failed to allocate {} bytes.", size);
-  }
-
-  (*header) = size;
-  return reinterpret_cast<void*>(header + 1);
-}
-
-void operator delete(void* data) noexcept
-{
-  if (data)
-  {
-    uint32_t* header = reinterpret_cast<uint32_t*>(data) - 1;
-
-    builder_memory_report().deallocate(*header);
-    free(header);
-  }
 }

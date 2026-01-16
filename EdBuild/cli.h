@@ -120,7 +120,13 @@ protected:
   }
 protected:
   std::vector<cli_parameter> m_parameters;
-} g_cli_parameters;
+};
+
+inline cli_parameters& cli()
+{
+  static cli_parameters instance;
+  return instance;
+}
 
 // ---------------------------------------------
 
@@ -266,8 +272,8 @@ inline targets_list& targets()
 
 inline const target* active_target()
 {
-  static const target* result = targets().find(g_cli_parameters.get_target());
-  estd::assert_condition(result, "Was not able to find target {}.", g_cli_parameters.get_target());
+  static const target* result = targets().find(cli().get_target());
+  estd::assert_condition(result, "Was not able to find target {}.", cli().get_target());
   return result;
 }
 
@@ -339,9 +345,10 @@ inline platforms_list& platforms()
   return list;
 }
 
+#pragma message("This has to be untangled next.")
 inline const platform* active_platform()
 {
-  static const platform* result = platforms().find(g_cli_parameters.get_platform());
-  estd::assert_condition(result, "Was not able to find platform {}.", g_cli_parameters.get_platform());
+  static const platform* result = platforms().find(cli().get_platform());
+  estd::assert_condition(result, "Was not able to find platform {}.", cli().get_platform());
   return result;
 }

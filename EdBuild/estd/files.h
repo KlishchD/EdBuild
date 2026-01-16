@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fstream>
+
 namespace estd
 {
   template <bool perform_seek_to_file_start>

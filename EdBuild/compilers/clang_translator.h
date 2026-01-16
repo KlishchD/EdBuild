@@ -1,6 +1,7 @@
 #pragma once
 
 #include "compiler_translator.h"
+#include "cli.h"
 
 class clang_output_parser : public compiler_output_parser
 {

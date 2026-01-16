@@ -19,7 +19,7 @@ public:
 
   builder(const configuration& config)
     : config(config),
-    cache(g_cli_parameters.get_platform(), g_cli_parameters.get_target())
+    cache(cli().get_platform(), cli().get_target())
   {
   }
 
@@ -216,7 +216,7 @@ protected:
     {
       if (subprojects.is_preproced()) continue;
 
-      command_string path = g_cli_parameters.get_intermediate_path();
+      command_string path = cli().get_intermediate_path();
       path.append(subprojects.name);
 
       if (std::filesystem::exists(path.c_str()))
@@ -234,7 +234,7 @@ protected:
     for (const auto& build : project.builds)
     {
 #pragma message("Platform dependant code.")
-      command_string path = g_cli_parameters.get_builds_path();
+      command_string path = cli().get_builds_path();
       path.append(build.name);
       path.append("\\");
 
@@ -272,7 +272,7 @@ protected:
     commands_list dependencies_list_commands = orchestrator.generate_dependencies_update_commands();
     estd::log("\n{}Dependency list commands count{}: {}.\n", estd::colors::yellow(), estd::colors::reset(), dependencies_list_commands.size());
 
-    estd::async_shell_execute<32>(dependencies_list_commands, g_cli_parameters.get_threads_count());
+    estd::async_shell_execute<32>(dependencies_list_commands, cli().get_threads_count());
   }
 
   void filter(compiler_orchestrator& orchestrator, project_configuration& project)
@@ -328,11 +328,11 @@ protected:
 
       compiler_output_parser& parser = *std::static_pointer_cast<compiler_output_parser>(partition.parser);
       parser.set_output_store(results);
-      parser.set_threads_count(g_cli_parameters.get_threads_count());
+      parser.set_threads_count(cli().get_threads_count());
       parser.set_execution_policy(execution_policy::stop_on_error);
 
       estd::log("{}Partition {}{}:", estd::colors::yellow(), estd::colors::reset(), partition_index);
-      estd::async_shell_execute<32>(partition.commands, parser, g_cli_parameters.get_threads_count());
+      estd::async_shell_execute<32>(partition.commands, parser, cli().get_threads_count());
 
       parser.clean_up();
     }
@@ -345,7 +345,7 @@ protected:
     commands_list database_entry_commands = orchestrator.generate_database_entry_commands();
     estd::log("Database entries commands count: {}.\n");
 
-    estd::async_shell_execute<32>(database_entry_commands, g_cli_parameters.get_threads_count());
+    estd::async_shell_execute<32>(database_entry_commands, cli().get_threads_count());
 
     std::string database;
 
@@ -370,7 +370,7 @@ protected:
 
     database.push_back(']');
 
-    command_string database_path = g_cli_parameters.get_intermediate_path();
+    command_string database_path = cli().get_intermediate_path();
     database_path.append("database.json");
     dump_to_file(database_path, database);
   }
@@ -392,7 +392,7 @@ protected:
     {
       const auto& partition = partitions[partition_index];
       estd::log("{}Partition{} {}:", estd::colors::yellow(), estd::colors::reset(), partition_index);
-      estd::async_shell_execute<32>(partition.commands, g_cli_parameters.get_threads_count());
+      estd::async_shell_execute<32>(partition.commands, cli().get_threads_count());
     }
   }
 
@@ -401,7 +401,7 @@ protected:
     for (const auto& build : project.builds)
     {
 #pragma message("Platform dependant code.")
-      estd::stack_string_512 build_path_string = g_cli_parameters.get_builds_path();
+      estd::stack_string_512 build_path_string = cli().get_builds_path();
       build_path_string.append(build.name);
       build_path_string.append("\\");
 

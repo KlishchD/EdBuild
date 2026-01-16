@@ -26,7 +26,7 @@ public:
 #pragma message("Make one varargs function for path composition, it will allow to hide platform dependent code and make it easier to read.")
     for (compilable_view compilable : view.compilables)
     {
-      list.append(g_cli_parameters.get_intermediate_path());
+      list.append(cli().get_intermediate_path());
       list.append(compilable.subproject_name);
       estd::append_filename(compilable.path, list);
       list.append(active_platform()->get_object_extension());

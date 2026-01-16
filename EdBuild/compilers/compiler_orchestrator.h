@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tools_registry.h"
 #include "compiler_driver.h"
 
 // Orchestrator knows about all the drivers and manages them.

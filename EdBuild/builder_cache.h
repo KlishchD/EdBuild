@@ -8,7 +8,9 @@ public:
     entry_name.push_back(platfrom);
     entry_name.push_back(target);
 
-    estd::stack_string_512 cache_path = g_cli_parameters.get_intermediate_path();
+    cli_parameters& console = cli();
+
+    estd::stack_string_512 cache_path = console.get_intermediate_path();
     cache_path.append("builder_cache.json");
 
     const bool cache_exists = std::filesystem::exists(cache_path.c_str());
@@ -93,7 +95,7 @@ public:
       hashes[subproject.name] = subproject.get_hash();
     }
 
-    estd::stack_string_512 cache_path = g_cli_parameters.get_intermediate_path();
+    estd::stack_string_512 cache_path = cli().get_intermediate_path();
     cache_path.append("builder_cache.json");
 
     estd::write_json(cache_path, cache);

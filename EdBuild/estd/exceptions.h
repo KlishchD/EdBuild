@@ -4,6 +4,10 @@
 
 namespace estd
 {
+  template <typename... args_types>
+  inline void log(const std::format_string<args_types...>& format, args_types... args);
+  inline void log(const char* string);
+
   // Small note from me to me) due to exploration of std::format.
   // std::format expects format_string which has only consteval constructor.
   // Which means function has to receive format_string that will be constructed at compile time

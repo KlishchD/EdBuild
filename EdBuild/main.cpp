@@ -1,7 +1,40 @@
 #include "EdBuild.h"
 
+#include "builder.h"
+#include "readers/json_reader.h"
+#include "parsers/input_parser.h"
 #include "compilers/clang_translator.h"
 #include "linkers/lld_link_translator.h"
+
+void* operator new(size_t size)
+{
+  if (size == 0)
+  {
+    estd::throw_error<std::invalid_argument>("Can not allocate 0 bytes of memory.");
+  }
+
+  builder_memory_report().allocate(size);
+
+  uint32_t* header = reinterpret_cast<uint32_t*>(malloc(size + sizeof(uint32_t)));
+  if (!header)
+  {
+    estd::throw_error<std::logic_error>("Failed to allocate {} bytes.", size);
+  }
+
+  (*header) = size;
+  return reinterpret_cast<void*>(header + 1);
+}
+
+void operator delete(void* data) noexcept
+{
+  if (data)
+  {
+    uint32_t* header = reinterpret_cast<uint32_t*>(data) - 1;
+
+    builder_memory_report().deallocate(*header);
+    free(header);
+  }
+}
 
 int32_t main(int32_t count, const char** arguments)
 {
@@ -11,8 +44,8 @@ int32_t main(int32_t count, const char** arguments)
 
   try
   {
-    g_cli_parameters.initialize(count, arguments);
-    g_cli_parameters.dump_parameters();
+    cli().initialize(count, arguments);
+    cli().dump_parameters();
   
     estd::log("\nActive target: ");
     active_target()->dump();
@@ -20,7 +53,7 @@ int32_t main(int32_t count, const char** arguments)
     estd::log("\nActive platform: ");
     active_platform()->dump();
 
-    estd::stack_string_512 instructions_path = g_cli_parameters.get_project_path();
+    estd::stack_string_512 instructions_path = cli().get_project_path();
     instructions_path.append(strings::instructions_path);
     estd::json instructions = estd::read_json(instructions_path);
 
@@ -41,7 +74,7 @@ int32_t main(int32_t count, const char** arguments)
     tools().register_driver<direct_linking_driver<lld_linker_translator>>();
 
     builder::configuration configuration(tools());
-    configuration.ignore_builder_updates = g_cli_parameters.ignore_builder_update();
+    configuration.ignore_builder_updates = cli().ignore_builder_update();
     configuration.generate_compilation_database = false;
 
     builder instance{ configuration };
@@ -50,7 +83,7 @@ int32_t main(int32_t count, const char** arguments)
     targets().clean();
     platforms().clean();
       
-    g_cli_parameters.clean();
+    cli().clean();
   }
   catch (const std::exception& error)
   {

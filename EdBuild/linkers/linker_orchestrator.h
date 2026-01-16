@@ -1,5 +1,7 @@
 #pragma once
 
+#include "tools_registry.h"
+
 class linker_orchestrator
 {
 public:

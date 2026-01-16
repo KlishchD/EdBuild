@@ -1,6 +1,7 @@
 #pragma once
 
 #include "compiler_driver_cache.h"
+#include "cli.h"
 
 // Driver knows which projects it can work on and performs operations only on them.
 class compiler_driver
