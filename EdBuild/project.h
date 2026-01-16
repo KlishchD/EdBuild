@@ -2,17 +2,19 @@
 
 #include "EdBuild.h"
 
-enum class compiler_options : int8_t
+enum class builder_options : int8_t
 {
   language_standard = 0,
   waringings_level,
-  disable_warnings
+  disable_warnings,
+  generate_debug_information,
+  generate_symbols_database
 };
 
 // TODO: Consider pointers or moving.
 struct option_description
 {
-  compiler_options type;
+  builder_options type;
   std::string value;
 
   uint32_t get_hash() const;
@@ -137,6 +139,7 @@ struct artifact_description
   // Workaround, because you can not make a nice union with std::strings.
   std::string field1;
   std::string field2;
+  std::string field3;
   std::string resources;
 
   artifact_types type;
@@ -168,6 +171,12 @@ struct artifact_description
 
   inline void executable(const std::string& path) { field2 = path; }
   inline void executable(std::string&& path) { field2 = std::move(path); }
+
+  inline const std::string& symbols_database() const { return field3; };
+  inline std::string& symbols_database() { return field3; };
+
+  inline void symbols_database(const std::string& path) { field3 = path; }
+  inline void symbols_database(std::string&& path) { field3 = std::move(path); }
 };
 
 using artifact_dependencies_list = std::vector<artifact_description>;

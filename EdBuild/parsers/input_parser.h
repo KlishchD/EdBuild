@@ -7,7 +7,7 @@ class compiler_input_parser
 {
   using dependencies_list = std::vector<const std::string*>;
 public:
-  using option_parser = compiler_options(*)(const std::string& option_name);
+  using option_parser = builder_options(*)(const std::string& option_name);
 
   void register_option_parser(option_parser parser)
   {
@@ -93,10 +93,10 @@ public:
 protected:
   inline option_description parse_option(const input_reader::option_data& input) const
   {
-    compiler_options type = static_cast<compiler_options>(-1);
+    builder_options type = static_cast<builder_options>(-1);
     for (const auto& parser : option_parsers)
     {
-      compiler_options result = parser(*input.name);
+      builder_options result = parser(*input.name);
       if (static_cast<int32_t>(result) >= 0)
       {
         type = result;

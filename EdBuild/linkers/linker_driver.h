@@ -28,6 +28,16 @@ public:
 
   virtual void create_artifacts() override
   {
+    bool project_symbols_enabled = false;
+    for (const auto& option : project.options)
+    {
+      if (option.type == builder_options::generate_symbols_database)
+      {
+        project_symbols_enabled = option.value == "1";
+        break;
+      }
+    }
+
     for (std::size_t subproject_index : owned_subprojects)
     {
       auto& subproject = project.subprojects[subproject_index];
@@ -49,13 +59,13 @@ public:
       {
         artifact.import_library().append(cli().get_intermediate_path());
         artifact.import_library().append(subproject.name);
-        artifact.static_library().append("\\");
+        artifact.import_library().append("\\");
         artifact.import_library().append(subproject.name);
         artifact.import_library().append(active_platform()->get_static_library_extension());
 
         artifact.dynamic_library().append(cli().get_intermediate_path());
         artifact.dynamic_library().append(subproject.name);
-        artifact.static_library().append("\\");
+        artifact.dynamic_library().append("\\");
         artifact.dynamic_library().append(subproject.name);
         artifact.dynamic_library().append(active_platform()->get_dynamic_library_extension());
 
@@ -65,13 +75,42 @@ public:
       {
         artifact.executable().append(cli().get_intermediate_path());
         artifact.executable().append(subproject.name);
-        artifact.static_library().append("\\");
+        artifact.executable().append("\\");
         artifact.executable().append(subproject.name);
         artifact.executable().append(active_platform()->get_exectuable_extension());
         break;
       }
       default:
         estd::no_default("Linker driver failed to create artefact for subproject: [{}].", subproject.name.c_str());
+      }
+
+      bool symbols_needed = false;
+
+      const bool symbols_supported = subproject.artifact.type != artifact_types::static_library;
+      if (symbols_supported)
+      {
+        symbols_needed = project_symbols_enabled;
+
+        if (!symbols_needed)
+        {
+          for (const auto& option : subproject.options)
+          {
+            if (option.type == builder_options::generate_symbols_database)
+            {
+              symbols_needed = option.value == "1";
+              break;
+            }
+          }
+        }
+      }
+
+      if (symbols_needed)
+      {
+        artifact.symbols_database().append(cli().get_intermediate_path());
+        artifact.symbols_database().append(subproject.name);
+        artifact.symbols_database().append("\\");
+        artifact.symbols_database().append(subproject.name);
+        artifact.symbols_database().append(active_platform()->get_symobls_database_extension());
       }
     }
   }
@@ -94,6 +133,17 @@ public:
 
       command_string command;
       translator.compute_linking_command(view, command);
+
+      for (const auto& option : project.options)
+      {
+        translator.append_option(option, command);
+      }
+
+      const auto& subproject = project.subprojects[subproject_index];
+      for (const auto& option : subproject.options)
+      {
+        translator.append_option(option, command);
+      }
 
       command_description result;
       result.value = std::move(command);

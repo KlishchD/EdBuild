@@ -5,6 +5,16 @@
       {
         "Name": "C++",
         "Value": "Latest"
+      },
+      {
+        "Name": "GenerateDebugInformation",
+        "Value": "1",
+        "Targets": "D"
+      },
+      {
+        "Name": "GenerateSymbolsDatabase",
+        "Value": "1",
+        "Targets": "D"
       }
     ],
     "Defines": [

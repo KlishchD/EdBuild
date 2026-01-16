@@ -20,6 +20,7 @@ public:
     {
       list.append("/lib ");
     }
+
 #pragma message("To be moved to options to allow user selection.")
     list.append("/subsystem:CONSOLE ");
 
@@ -38,17 +39,28 @@ public:
     if (is_executable && has_resources)
     {
       list.append(artifact->resources);
-      list.push_back(' ');
     }
 
-    list.append("/out:");
+    list.append(" /out:");
     list.append(artifact->output());
+
+    const bool symbols_are_needed = artifact->symbols_database().size();
+    if (symbols_are_needed)
+    {
+      list.append(" /debug:full");
+
+      list.append(" /pdbsourcepath:");
+      list.append(cli().get_project_path());
+
+      list.append(" /pdb:");
+      list.append(artifact->symbols_database());
+    }
+
+    list.push_back(' ');
 
     const bool expects_dependencies = artifact->type != artifact_types::static_library;
     if (expects_dependencies)
     {
-      list.push_back(' ');
-
       for (const auto& dependency_artifact : *view.dependencies)
       {
         list.append(dependency_artifact.input());

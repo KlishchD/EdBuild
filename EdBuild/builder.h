@@ -428,14 +428,30 @@ protected:
         {
           std::filesystem::path artifact_path = artifact.dynamic_library();
           std::filesystem::copy(artifact_path, build_path);
+
+          const bool needs_symbols = artifact.symbols_database().size();
+          if (needs_symbols)
+          {
+            std::filesystem::path artifact_path = artifact.symbols_database();
+            std::filesystem::copy(artifact_path, build_path);
+          }
         }
       }
 
       const bool needs_moving = subproject.artifact.type != artifact_types::static_library;
       if (needs_moving)
       {
-        std::filesystem::path artifact_path = subproject.artifact.output();
+        const auto& artifact = subproject.artifact;
+
+        std::filesystem::path artifact_path = artifact.output();
         std::filesystem::copy(artifact_path, build_path);
+
+        const bool needs_symbols = artifact.symbols_database().size();
+        if (needs_symbols)
+        {
+          std::filesystem::path artifact_path = artifact.symbols_database();
+          std::filesystem::copy(artifact_path, build_path);
+        }
       }
     }
   }

@@ -353,9 +353,15 @@ private:
   {
     switch (option.type)
     {
-    case compiler_options::language_standard: return convert_language_standard_option(option);
-    case compiler_options::waringings_level: return convert_warnings_level_option(option);
-    case compiler_options::disable_warnings: return convert_disable_warnings_option(option);
+    case builder_options::language_standard: return convert_language_standard_option(option);
+    case builder_options::waringings_level: return convert_warnings_level_option(option);
+    case builder_options::disable_warnings: return convert_disable_warnings_option(option);
+    case builder_options::generate_debug_information: return option.value == "1" ? "-g" : "";
+
+    // Non relevant options list
+    case builder_options::generate_symbols_database:
+      break;
+
     default:
       estd::throw_error<std::invalid_argument>("Provided option is not supported [{}].", static_cast<uint8_t>(option.type));
       break;
@@ -548,9 +554,16 @@ private:
   {
     switch (option.type)
     {
-    case compiler_options::language_standard: return convert_language_standard_option(option);
-    case compiler_options::waringings_level: return convert_warnings_level_option(option);
-    case compiler_options::disable_warnings: return convert_disable_warnings_option(option);
+    case builder_options::language_standard: return convert_language_standard_option(option);
+    case builder_options::waringings_level: return convert_warnings_level_option(option);
+    case builder_options::disable_warnings: return convert_disable_warnings_option(option);
+
+    case builder_options::generate_debug_information: return option.value == "1" ? "/Z7" : "";
+
+    // Non relevant options list
+    case builder_options::generate_symbols_database:
+      break;
+
     default:
       estd::throw_error<std::invalid_argument>("Provided option is not supported [{}].", static_cast<uint8_t>(option.type));
       break;
