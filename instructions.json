@@ -23,9 +23,15 @@
   },
   "Projects": [
     {
+      "Name": "ESTD",
+      "Sources": [ "Dependencies\\ESTD\\estd" ],
+      "Includes": [ "Dependencies\\ESTD\\Dependencies\\json\\include" ]
+    },
+    {
       "Name": "EdBuild",
       "Sources": [ "EdBuild" ],
-      "Includes": [ "dependencies\\nlohmann_json\\single_include" ],
+      "Includes": [ "dependencies\\ESTD" ],
+      "Dependencies": [ "ESTD" ],
       "ArtifactType": "Executable"
     }
   ],
