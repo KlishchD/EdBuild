@@ -1,16 +1,17 @@
 #pragma once
 
+#include "EdBuild.h"
+
 struct builder_cache
 {
 public:
-  builder_cache(char platfrom, char target)
+  builder_cache(const path_string& intermediate_path, char platfrom, char target)
+    : intermediate_path(intermediate_path)
   {
     entry_name.push_back(platfrom);
     entry_name.push_back(target);
 
-    cli_parameters& console = cli();
-
-    estd::stack_string_512 cache_path = console.get_intermediate_path();
+    path_string cache_path = intermediate_path;
     cache_path.append("builder_cache.json");
 
     const bool cache_exists = std::filesystem::exists(cache_path.c_str());
@@ -95,7 +96,7 @@ public:
       hashes[subproject.name] = subproject.get_hash();
     }
 
-    estd::stack_string_512 cache_path = cli().get_intermediate_path();
+    path_string cache_path = intermediate_path;
     cache_path.append("builder_cache.json");
 
     estd::write_json(cache_path, cache);
@@ -103,6 +104,8 @@ public:
     estd::log("Builder cache was updated.");
   }
 private:
+  const path_string& intermediate_path;
+
   estd::json cache;
   std::string entry_name;
 };

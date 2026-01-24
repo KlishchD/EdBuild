@@ -5,9 +5,10 @@
 class linker_orchestrator
 {
 public:
-  linker_orchestrator(project_configuration& project, const tools_registry& tools) : project(project)
+  linker_orchestrator(const platform& active_platform, project_configuration& project, const tools_registry& tools)
+    : active_platform(active_platform), project(project)
   {
-    tools.create_drivers(project, drivers);
+    tools.create_drivers(active_platform, project, drivers);
   }
 
   void create_artifacts()
@@ -40,6 +41,7 @@ public:
   }
 
 protected:
+  const platform& active_platform;
   const project_configuration& project;
   drivers_list<linker_driver> drivers;
 };

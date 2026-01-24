@@ -5,8 +5,16 @@
 class lld_linker_translator
 {
 public:
+  lld_linker_translator(const platform& active_platform) : active_platform(active_platform)
+  { }
+
   void append_option(const option_description& option, command_string& list)
   {
+    if (option.type == builder_options::symbols_database_source)
+    {
+      list.append(" /pdbsourcepath:");
+      list.append(option.value);
+    }
   }
 
   void compute_linking_command(const artifact_view& view, command_string& list)
@@ -27,10 +35,7 @@ public:
 #pragma message("Make one varargs function for path composition, it will allow to hide platform dependent code and make it easier to read.")
     for (compilable_view compilable : view.compilables)
     {
-      list.append(cli().get_intermediate_path());
-      list.append(compilable.subproject_name);
-      estd::append_filename(compilable.path, list);
-      list.append(active_platform()->get_object_extension());
+      compilable.append_output_path(active_platform.get_object_extension(), list);
       list.push_back(' ');
     }
 
@@ -48,9 +53,6 @@ public:
     if (symbols_are_needed)
     {
       list.append(" /debug:full");
-
-      list.append(" /pdbsourcepath:");
-      list.append(cli().get_project_path());
 
       list.append(" /pdb:");
       list.append(artifact->symbols_database());
@@ -78,4 +80,6 @@ public:
   {
     return nullptr;
   }
+protected:
+  const platform& active_platform;
 };

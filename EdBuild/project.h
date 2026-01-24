@@ -8,7 +8,8 @@ enum class builder_options : int8_t
   waringings_level,
   disable_warnings,
   generate_debug_information,
-  generate_symbols_database
+  generate_symbols_database,
+  symbols_database_source
 };
 
 // TODO: Consider pointers or moving.
@@ -95,13 +96,14 @@ private:
 
 struct compilable_description
 {
-  std::string path;
+  path_string path;
   filter_status status;
 
   compilable_description();
 
   template <typename string_type>
-  compilable_description(const string_type& path) : path(path), status() {}
+  compilable_description(const string_type& path) : path(path.c_str()), status() {}
+  compilable_description(const char* path) : path(path), status() {}
 
   compilable_description(const compilable_description& other);
   compilable_description(compilable_description&& other)  noexcept;
@@ -137,53 +139,54 @@ inline const char* get_type_name(artifact_types type);
 struct artifact_description
 {
   // Workaround, because you can not make a nice union with std::strings.
-  std::string field1;
-  std::string field2;
-  std::string field3;
-  std::string resources;
+  path_string field1;
+  path_string field2;
+  path_string field3;
+  path_string resources;
 
   artifact_types type;
   bool preproduced;
 
-  inline const std::string& input() const { return type == artifact_types::static_library ? static_library() : import_library(); }
-  inline const std::string& output() const { return field2; }
+  inline const path_string& input() const { return type == artifact_types::static_library ? static_library() : import_library(); }
+  inline const path_string& output() const { return field2; }
 
-  inline const std::string& import_library() const { return field1; };
-  inline std::string& import_library() { return field1; };
+  inline const path_string& import_library() const { return field1; };
+  inline path_string& import_library() { return field1; };
 
-  inline void import_library(const std::string& path) { field1 = path; }
-  inline void import_library(std::string&& path) { field1 = std::move(path); }
+  inline void import_library(const path_string& path) { field1 = path; }
+  inline void import_library(path_string&& path) { field1 = std::move(path); }
 
-  inline const std::string& dynamic_library() const { return field2; };
-  inline std::string& dynamic_library() { return field2; };
+  inline const path_string& dynamic_library() const { return field2; };
+  inline path_string& dynamic_library() { return field2; };
 
-  inline void dynamic_library(const std::string& path) { field2 = path; }
-  inline void dynamic_library(std::string&& path) { field2 = std::move(path); }
+  inline void dynamic_library(const path_string& path) { field2 = path; }
+  inline void dynamic_library(path_string&& path) { field2 = std::move(path); }
 
-  inline const std::string& static_library() const { return field2; };
-  inline std::string& static_library() { return field2; };
+  inline const path_string& static_library() const { return field2; };
+  inline path_string& static_library() { return field2; };
 
-  inline void static_library(const std::string& path) { field2 = path; }
-  inline void static_library(std::string&& path) { field2 = std::move(path); }
+  inline void static_library(const path_string& path) { field2 = path; }
+  inline void static_library(path_string&& path) { field2 = std::move(path); }
 
-  inline const std::string& executable() const { return field2; };
-  inline std::string& executable() { return field2; };
+  inline const path_string& executable() const { return field2; };
+  inline path_string& executable() { return field2; };
 
-  inline void executable(const std::string& path) { field2 = path; }
-  inline void executable(std::string&& path) { field2 = std::move(path); }
+  inline void executable(const path_string& path) { field2 = path; }
+  inline void executable(path_string&& path) { field2 = std::move(path); }
 
-  inline const std::string& symbols_database() const { return field3; };
-  inline std::string& symbols_database() { return field3; };
+  inline const path_string& symbols_database() const { return field3; };
+  inline path_string& symbols_database() { return field3; };
 
-  inline void symbols_database(const std::string& path) { field3 = path; }
-  inline void symbols_database(std::string&& path) { field3 = std::move(path); }
+  inline void symbols_database(const path_string& path) { field3 = path; }
+  inline void symbols_database(path_string&& path) { field3 = std::move(path); }
 };
 
 using artifact_dependencies_list = std::vector<artifact_description>;
 
 struct subproject_configuration
 {
-  std::string name;
+  name_string name;
+  path_string output_path;
 
   option_descriptions options;
   define_descriptions defines;
@@ -223,24 +226,32 @@ using subproject_configurations = std::vector<subproject_configuration>;
 struct compilable_view
 {
   const char* path = nullptr;
-  const char* extension = nullptr;
+  const char* output_path = nullptr;
 
   const char* subproject_name = nullptr;
   std::size_t subproject_index = -1;
   std::size_t compilable_index = -1;
 
-  filter_status* status;
+  filter_status* status = nullptr;
 
   bool is_source = false;
   bool has_precompile_header = false;
 
   inline operator bool() const { return !!path; }
+
+  template <typename string_type>
+  void append_output_path(const char* extension, string_type& destination) const
+  {
+    destination.append(output_path);
+    estd::append_filename(path, destination);
+    destination.append(extension);
+  }
 };
 
 struct build_configuration
 {
-  std::string name;
-  std::string subproject_name;
+  name_string name;
+  name_string subproject_name;
 };
 
 using build_configurations = std::vector<build_configuration>;
@@ -348,7 +359,7 @@ protected:
 
 struct project_configuration
 {
-  std::string name;
+  name_string name;
 
   subproject_configurations subprojects;
   option_descriptions options;

@@ -45,30 +45,29 @@ public:
     return options.size() > option_index;
   }
 
-  virtual std::optional<option_data> next_option() override
+  virtual option_data next_option() override
   {
+    option_data data;
+
     const estd::json& project = get_current_project();
-    if (!project.contains("Options")) return std::nullopt;
+    if (!project.contains("Options")) return data;
 
     const estd::json& options = project["Options"];
-    if (option_index >= options.size()) return std::nullopt;
+    if (option_index >= options.size()) return data;
 
     const estd::json& option_object = options[option_index];
     ++option_index;
 
-    const std::string* platforms = estd::fetch_value<std::string>(option_object, "Platforms");
-    if (platforms && !active_platform()->match(platforms->c_str())) return std::nullopt;
+    data.name = estd::fetch_value<std::string>(option_object, "Name");
+    estd::assert_condition(data.name, "Failed to fetch Name parameter from an option.");
 
-    const std::string* targets = estd::fetch_value<std::string>(option_object, "Targets");
-    if (targets && !active_target()->match(targets->c_str())) return std::nullopt;
+    data.value = estd::fetch_value<std::string>(option_object, "Value");
+    estd::assert_condition(data.value, "Failed to fetch Value parameter from an option.");
 
-    const std::string* value = estd::fetch_value<std::string>(option_object, "Value");
-    estd::assert_condition(value, "Failed to fetch Value parameter from an option.");
+    data.platforms = estd::fetch_value<std::string>(option_object, "Platforms");
+    data.targets = estd::fetch_value<std::string>(option_object, "Targets");
 
-    const std::string* name = estd::fetch_value<std::string>(option_object, "Name");
-    estd::assert_condition(name, "Failed to fetch Name parameter from an option.");
-
-    return option_data{ name, value };
+    return data;
   }
 
   virtual bool has_next_define() const override
@@ -80,30 +79,29 @@ public:
     return defines.size() > define_index;
   }
 
-  virtual std::optional<define_data> next_define() override
+  virtual define_data next_define() override
   {
+    define_data data;
+
     const estd::json& project = get_current_project();
-    if (!project.contains("Defines")) return std::nullopt;
+    if (!project.contains("Defines")) return data;
 
     const estd::json& defines = project["Defines"];
-    if (define_index >= defines.size()) return std::nullopt;
+    if (define_index >= defines.size()) return data;
 
     const estd::json& define_object = defines[define_index];
     ++define_index;
 
-    const std::string* platforms = estd::fetch_value<std::string>(define_object, "Platforms");
-    if (platforms && !active_platform()->match(platforms->c_str())) return std::nullopt;
+    data.name = estd::fetch_value<std::string>(define_object, "Name");
+    estd::assert_condition(data.name, "Failed to fetch Name parameter from a define.");
 
-    const std::string* targets = estd::fetch_value<std::string>(define_object, "Targets");
-    if (targets && !active_target()->match(targets->c_str())) return std::nullopt;
+    data.value = estd::fetch_value<std::string>(define_object, "Value");
+    estd::assert_condition(data.value, "Failed to fetch Value parameter from a define.");
 
-    const std::string* value = estd::fetch_value<std::string>(define_object, "Value");
-    estd::assert_condition(value, "Failed to fetch Value parameter from an define.");
+    data.platforms = estd::fetch_value<std::string>(define_object, "Platforms");
+    data.targets = estd::fetch_value<std::string>(define_object, "Targets");
 
-    const std::string* name = estd::fetch_value<std::string>(define_object, "Name");
-    estd::assert_condition(name, "Failed to fetch Name parameter from an define.");
-
-    return define_data{ name, value };
+    return data;
   }
 
   virtual bool has_next_source() const override

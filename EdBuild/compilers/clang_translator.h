@@ -1,7 +1,6 @@
 #pragma once
 
 #include "compiler_translator.h"
-#include "cli.h"
 
 class clang_output_parser : public compiler_output_parser
 {
@@ -243,6 +242,9 @@ protected:
 class clang_translator
 {
 public:
+  clang_translator(const platform& active_platform) : active_platform(active_platform)
+  { }
+
   void append_option(const option_description& option, command_string& list) const
   {
     command_string local_result = convert_option(option);
@@ -277,8 +279,7 @@ public:
     if (!view || view.is_source) return;
 
     list.append(" -include-pch ");
-    list.append(get_output_path(view));
-    list.append(active_platform()->get_precompile_header_extension());
+    view.append_output_path(active_platform.get_precompile_header_extension(), list);
     list.append(" ");
   }
 
@@ -287,8 +288,7 @@ public:
     command_string command = "clang++ -w -MM ";
     command.append(view.path);
     command.append(" -MF ");
-    command.append(get_output_path(view));
-    command.append(active_platform()->get_dependencies_extension());
+    view.append_output_path(active_platform.get_dependencies_extension(), command);
     return command;
   }
 
@@ -305,8 +305,9 @@ public:
     }
 
     result.append(" -o ");
-    result.append(get_output_path(view));
-    result.append(view.extension);
+
+    const char* extension = view.is_source ? active_platform.get_object_extension() : active_platform.get_precompile_header_extension();
+    view.append_output_path(extension, result);
 
     result.append(" 2>&1");
 
@@ -315,16 +316,15 @@ public:
 
   command_string compute_database_entry_command(const compilable_view& view) const 
   {
-    command_string output_path = get_output_path(view);
-
     command_string result = "clang++ -c ";
     result.append(view.path);
+
     result.append(" -o ");
-    result.append(get_output_path(view));
-    result.append(view.extension);
+    view.append_output_path(active_platform.get_object_extension(), result);
+
     result.append(" -MJ ");
-    result.append(output_path);
-    result.append(active_platform()->get_database_extension());
+    view.append_output_path(active_platform.get_database_extension(), result);
+
     result.append(" ");
     return result;
   }
@@ -348,7 +348,8 @@ public:
   {
     return std::make_shared<clang_output_parser>();
   }
-private:
+
+protected:
   inline command_string convert_option(const option_description& option) const
   {
     switch (option.type)
@@ -360,6 +361,7 @@ private:
 
     // Non relevant options list
     case builder_options::generate_symbols_database:
+    case builder_options::symbols_database_source:
       break;
 
     default:
@@ -420,11 +422,16 @@ private:
     estd::throw_error<std::invalid_argument>("Provided disable warnings value is not supported [{}].", option.value);
     return "";
   }
+protected:
+  const platform& active_platform;
 };
 
 class clang_cl_translator
 {
 public:
+  clang_cl_translator(const platform& active_platform) : active_platform(active_platform)
+  { }
+
   void append_option(const option_description& option, command_string& list) const
   {
     command_string local_result = convert_option(option);
@@ -462,8 +469,8 @@ public:
     list.append(view.path);
 
     list.append(" /Fp");
-    list.append(get_output_path(view));
-    list.append(active_platform()->get_precompile_header_extension());
+    view.append_output_path(active_platform.get_precompile_header_extension(), list);
+
     list.append(" ");
   }
 
@@ -472,12 +479,13 @@ public:
 #pragma message("Add exceptions logic as a separate option.")
     command_string command = "clang-cl /TP /w /EHa /showIncludes:user /P ";
     command.append(view.path);
+
     command.append(" /Fi");
-    command.append(get_output_path(view));
-    command.append(active_platform()->get_preprocessing_extension());
+    view.append_output_path(active_platform.get_preprocessing_extension(), command);
+
     command.append(" 2> ");
-    command.append(get_output_path(view));
-    command.append(active_platform()->get_dependencies_extension());
+    view.append_output_path(active_platform.get_dependencies_extension(), command);
+
     return command;
   }
 
@@ -504,14 +512,12 @@ public:
 
 #pragma message("File format mismatch issue.")
     result.append(" /Fo");
-    result.append(get_output_path(view));
-    result.append(active_platform()->get_object_extension());
+    view.append_output_path(active_platform.get_object_extension(), result);
 
     if (!view.is_source)
     {
       result.append(" /Fp");
-      result.append(get_output_path(view));
-      result.append(view.extension);
+      view.append_output_path(active_platform.get_precompile_header_extension(), result);
     }
 
     result.append(" 2>&1");
@@ -549,7 +555,7 @@ public:
   {
     return std::make_shared<clang_output_parser>();
   }
-private:
+protected:
   inline command_string convert_option(const option_description& option) const
   {
     switch (option.type)
@@ -562,6 +568,7 @@ private:
 
     // Non relevant options list
     case builder_options::generate_symbols_database:
+    case builder_options::symbols_database_source:
       break;
 
     default:
@@ -621,4 +628,6 @@ private:
     estd::throw_error<std::invalid_argument>("Provided disable warnings value is not supported [{}].", option.value);
     return "";
   }
+protected:
+  const platform& active_platform;
 };

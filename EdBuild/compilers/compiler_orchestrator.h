@@ -9,9 +9,10 @@ class compiler_orchestrator
 {
 public:
 #pragma message("Add drivers conflicts detection, based on projects interests.")
-  compiler_orchestrator(project_configuration& project, const tools_registry& tools) : project(project), compilables_count(0)
+  compiler_orchestrator(const platform& active_platform, project_configuration& project, const tools_registry& tools)
+    : active_platform(active_platform), project(project), compilables_count(0)
   {
-    tools.create_drivers(project, drivers);
+    tools.create_drivers(active_platform, project, drivers);
 
     for (const auto& subproject : project.subprojects)
     {
@@ -92,6 +93,7 @@ public:
   }
 
 protected:
+  const platform& active_platform;
   const project_configuration& project;
   drivers_list<compiler_driver> drivers;
   std::size_t compilables_count;

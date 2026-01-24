@@ -6,14 +6,18 @@ public:
   // TODO: Consider collapsing these.
   struct option_data
   {
-    const std::string* name;
-    const std::string* value;
+    const std::string* name = nullptr;
+    const std::string* value = nullptr;
+    const std::string* platforms = nullptr;
+    const std::string* targets = nullptr;
   };
 
   struct define_data
   {
-    const std::string* name;
-    const std::string* value;
+    const std::string* name = nullptr;
+    const std::string* value = nullptr;
+    const std::string* platforms = nullptr;
+    const std::string* targets = nullptr;
   };
 
   virtual bool is_project_name_present() const = 0;
@@ -22,10 +26,10 @@ public:
   virtual bool is_builds_list_present() const = 0;
 
   virtual bool has_next_option() const = 0;
-  virtual std::optional<option_data> next_option() = 0;
+  virtual option_data next_option() = 0;
 
   virtual bool has_next_define() const = 0;
-  virtual std::optional<define_data> next_define() = 0;
+  virtual define_data next_define() = 0;
 
   virtual bool has_next_source() const = 0;
   virtual const std::string* next_source() = 0;

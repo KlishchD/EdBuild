@@ -3,18 +3,22 @@
 #include "readers/input_reader.h"
 #include "project.h"
 
-class compiler_input_parser
+class builder_input_parser
 {
   using dependencies_list = std::vector<const std::string*>;
 public:
   using option_parser = builder_options(*)(const std::string& option_name);
+
+  builder_input_parser(const platform& active_platform, const target& active_target)
+    : active_platform(active_platform), active_target(active_target)
+  { }
 
   void register_option_parser(option_parser parser)
   {
     option_parsers.push_back(parser);
   }
 
-  project_configuration parse(input_reader& reader) const
+  project_configuration parse(const path_string& project_path, input_reader& reader) const
   {
     estd::log("Project parsing starts.");
 
@@ -29,7 +33,7 @@ public:
     dependencies_list temporary_dependencies;
 
     project_configuration project;
-    parse_project(reader, project, temporary_dependencies);
+    parse_project(project_path, reader, project, temporary_dependencies);
     reader.next_subproject();
 
     estd::log("Globals parsed.");
@@ -38,7 +42,7 @@ public:
     while (reader.is_subproject_valid())
     {
       subproject_configuration subproject;
-      parse_project(reader, subproject, temporary_dependencies);
+      parse_project(project_path, reader, subproject, temporary_dependencies);
 
       project.subprojects.push_back(std::move(subproject));
       dependencies_lists.push_back(std::move(temporary_dependencies));
@@ -56,15 +60,15 @@ public:
       estd::assert_condition(name, "Build configuration must include name.");
       estd::assert_condition(subproject, "Build [{}] configuration must include subproject name.", name->c_str());
 
-      build.name = *name;
-      build.subproject_name = *subproject;
+      build.name = name->c_str();
+      build.subproject_name = subproject->c_str();
 
       project.builds.push_back(std::move(build));
     }
 
     const std::size_t subprojects_count = dependencies_lists.size();
 
-    std::map<std::string, std::size_t> name_mapping;
+    std::map<name_string, std::size_t> name_mapping;
     for (std::size_t subproject_index = 0; subproject_index < subprojects_count; ++subproject_index)
     {
       const auto& subproject = project.subprojects[subproject_index];
@@ -80,7 +84,7 @@ public:
       {
         estd::log("PP: {}, {}.", project.subprojects[subproject_index].name, *dependency_name);
 
-        const std::size_t dependency_index = name_mapping[*dependency_name];
+        const std::size_t dependency_index = name_mapping[dependency_name->c_str()];
         auto& dependency_subrproject = project.subprojects[dependency_index];
         dependency_subrproject.dependants.push_back(subproject_index);
       }
@@ -114,23 +118,41 @@ protected:
   }
 
   template <typename project_type>
-  inline void parse_project(input_reader& reader, project_type& project, dependencies_list& dependencies) const
+  inline void parse_project(const path_string& project_path, input_reader& reader, project_type& project, dependencies_list& dependencies) const
   {
     estd::log("Started parsing project.");
-    project.name = *reader.project_name();
+    project.name = reader.project_name()->c_str();
 
     estd::log("Parsing project options.");
     while (reader.has_next_option())
     {
-      std::optional<input_reader::option_data> option = reader.next_option();
-      if (option.has_value()) project.options.push_back(std::move(parse_option(option.value())));
+      input_reader::option_data data = reader.next_option();
+      if (!data.name) continue;
+
+      const bool platform_filtered = data.platforms && !active_platform.match(data.platforms->c_str());
+      if (platform_filtered) continue;
+
+      const bool target_filtered = data.targets && !active_target.match(data.targets->c_str());
+      if (target_filtered) continue;
+
+      auto& destination = project.options;
+      destination.push_back(parse_option(data));
     }
 
     estd::log("Parsing project defines.");
     while (reader.has_next_define())
     {
-      std::optional<input_reader::define_data> define = reader.next_define();
-      if (define.has_value()) project.defines.push_back(std::move(parse_define(define.value())));
+      input_reader::define_data data = reader.next_define();
+      if (!data.name) continue;
+
+      const bool platform_filtered = data.platforms && !active_platform.match(data.platforms->c_str());
+      if (platform_filtered) continue;
+
+      const bool target_filtered = data.targets && !active_target.match(data.targets->c_str());
+      if (target_filtered) continue;
+
+      auto& destination = project.defines;
+      destination.push_back(parse_define(data));
     }
 
     if constexpr (std::is_same_v<project_type, subproject_configuration>)
@@ -140,8 +162,7 @@ protected:
         const std::string* source = reader.next_source();
         if (!source) continue;
 
-        estd::stack_string_1024 path;
-        path.append(cli().get_project_path());
+        path_string path = project_path;
         path.append(source->c_str());
 
         if (std::filesystem::is_directory(path.c_str()))
@@ -157,8 +178,7 @@ protected:
         const std::string* include = reader.next_include();
         if (!include) continue;
 
-        estd::stack_string_1024 path;
-        path.append(cli().get_project_path());
+        path_string path = project_path;
         path.append(include->c_str());
 
         project.includes.push_back(path.c_str());
@@ -166,8 +186,7 @@ protected:
 
       if (const std::string* precompile_header = reader.precompile_header())
       {
-        estd::stack_string_1024 path;
-        path.append(cli().get_project_path());
+        path_string path = project_path;
         path.append(precompile_header->c_str());
 
         const bool path_is_not_present = !std::filesystem::exists(path.c_str());
@@ -208,7 +227,7 @@ protected:
         if (preproduced_static_library)
         {
           artifact.type = artifact_types::static_library;
-          artifact.static_library().append(cli().get_project_path());
+          artifact.static_library().append(project_path);
           artifact.static_library().append(*static_library);
         }
         else if (preproduced_dynamic_library)
@@ -217,17 +236,17 @@ protected:
 
           if (import_library)
           {
-            artifact.import_library().append(cli().get_project_path());
+            artifact.import_library().append(project_path);
             artifact.import_library().append(*import_library);
           }
 
-          artifact.dynamic_library().append(cli().get_project_path());
+          artifact.dynamic_library().append(project_path);
           artifact.dynamic_library().append(*dynamic_library);
         }
         else
         {
           artifact.type = artifact_types::excutable;
-          artifact.executable().append(cli().get_project_path());
+          artifact.executable().append(project_path);
           artifact.executable().append(*executable);
         }
       }
@@ -252,7 +271,7 @@ protected:
 
         if (const std::string* resources = reader.resources())
         {
-          artifact.resources.append(cli().get_project_path());
+          artifact.resources.append(project_path);
           artifact.resources.append(*resources);
         }
       }
@@ -266,7 +285,7 @@ protected:
   }
 
   template <typename destination_type>
-  inline void append_all_files(const estd::stack_string_1024& path, const char* extension, destination_type& destination) const
+  inline void append_all_files(const path_string& path, const char* extension, destination_type& destination) const
   {
     // TODO: This does way to many allocations, need to explore custom wrappers, or accept it as part of file manipulation life.
     const bool path_is_not_present = !std::filesystem::exists(path.c_str());
@@ -279,9 +298,12 @@ protected:
     {
       const std::filesystem::path& path = entry.path();
       if (path.extension().compare(extension)) continue;
-      destination.push_back(std::move(path.string()));
+      destination.emplace_back(path.string());
     }
   }
 protected:
+  const platform& active_platform;
+  const target& active_target;
+
   std::vector<option_parser> option_parsers;
 };

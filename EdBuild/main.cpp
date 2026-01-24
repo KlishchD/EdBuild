@@ -1,5 +1,9 @@
 #include "EdBuild.h"
 
+#include "tools_registry.h"
+#include "platforms_registry.h"
+#include "targets_registry.h"
+
 #include "builder.h"
 #include "readers/json_reader.h"
 #include "parsers/input_parser.h"
@@ -42,50 +46,109 @@ int32_t main(int32_t count, const char** arguments)
 
   builder_memory_report().activate();
 
+  tools_registry tools;
+  tools.register_driver<caching_compiler_driver<clang_cl_translator>>();
+  tools.register_driver<direct_linking_driver<lld_linker_translator>>();
+
+  platforms_registry platforms;
+  platforms.create_platform("Windows", 'W')
+    .set_preprocessing_extension(".i")
+    .set_object_extension(".obj")
+    .set_precompile_header_extension(".pch")
+    .set_static_library_extension(".lib")
+    .set_dynamic_library_extension(".dll")
+    .set_executable_extension(".exe")
+    .set_dependencies_extension(".deps")
+    .set_database_extension(".dbe")
+    .set_symbols_database_extension(".pdb")
+    .commit();
+
+  targets_registry targets;
+  targets
+    .create_target("Debug", 'D')
+    .create_target("Release", 'R')
+    .create_target("Base", 'B');
+
+  using path_parameter = estd::console::path_parameter;
+  using integer_parameter = estd::console::integer_parameter;
+  using unsigned_integer_parameter = estd::console::unsigned_integer_parameter;
+  using bool_parameter = estd::console::bool_parameter;
+  using marker_parameter = estd::console::marker_parameter;
+
+  builder::configuration configuration{ tools };
+
+  estd::console::console console;
+  console.add_parameter<path_parameter>("-Project", &configuration.project_path)
+    .set_help("Sets a path to be perpended to all the relative project paths.")
+    .set_mandatory(true)
+    .set_directory(true);
+
+  console.add_parameter<path_parameter>("-Intermediate", &configuration.intermediate_path)
+    .set_help("Sets a path to the directory that will hold all the temporary intermediate data.")
+    .set_mandatory(true)
+    .set_directory(true);
+
+  console.add_parameter<path_parameter>("-Builds", &configuration.builds_path)
+    .set_help("Sets a path to the directory that builds will be composed at.")
+    .set_mandatory(true)
+    .set_directory(true);
+
+  console.add_parameter<unsigned_integer_parameter>("-Threads", &configuration.threads)
+    .set_help("Sets a maximum allowed number of threads to be used for building process.")
+    .set_mandatory(true)
+    .set_range(1, 32);
+
+  console.add_parameter<bool_parameter>("-IgnoreBuilderUpdate", &configuration.ignore_builder_updates)
+    .set_help("Disables build invalidation from the builder update check.");
+
+  console.add_parameter<bool_parameter>("-GenerateCompilationDatabase", &configuration.generate_compilation_database)
+    .set_help("Generates a compilation commands database after builds are generated.");
+
+  char platform = '-';
+  console.add_parameter<marker_parameter>("-Platform", &platform)
+    .set_help("Sets a marker for a platform to compile the project for.")
+    .set_madatory(true);
+
+  char target = '-';
+  console.add_parameter<marker_parameter>("-Target", &target)
+    .set_help("Sets a marker for a target to compile.")
+    .set_madatory(true);
+
+  console.parse(count, arguments);
+  console.verify_mandatory();
+
+  configuration.platform = platforms.find(platform);
+  assert_condition(configuration.platform, "Failed to find platform with marker {}.", platform);
+  estd::log("Selected platform: [{}].", configuration.platform->get_name());
+
+  configuration.target = targets.find(target);
+  assert_condition(configuration.platform, "Failed to find target with marker {}.", target);
+  estd::log("Selected target: [{}].", configuration.target->get_name());
+
   try
   {
-    cli().initialize(count, arguments);
-    cli().dump_parameters();
-  
-    estd::log("\nActive target: ");
-    active_target()->dump();
-  
-    estd::log("\nActive platform: ");
-    active_platform()->dump();
+    path_string instructions_path = configuration.project_path;
+    instructions_path.append("instructions.json");
 
-    estd::stack_string_512 instructions_path = cli().get_project_path();
-    instructions_path.append(strings::instructions_path);
     estd::json instructions = estd::read_json(instructions_path);
 
-    json_reader reader { instructions };
+    json_reader reader{ instructions };
     
-    compiler_input_parser parser;
+    builder_input_parser parser{ *configuration.platform, *configuration.target};
     parser.register_option_parser([](const std::string& name) { return name == "C++" ? builder_options::language_standard : static_cast<builder_options>(-1); });
     parser.register_option_parser([](const std::string& name) { return name == "DisableWarnings" ? builder_options::disable_warnings : static_cast<builder_options>(-1); });
     parser.register_option_parser([](const std::string& name) { return name == "GenerateDebugInformation" ? builder_options::generate_debug_information : static_cast<builder_options>(-1); });
     parser.register_option_parser([](const std::string& name) { return name == "GenerateSymbolsDatabase" ? builder_options::generate_symbols_database : static_cast<builder_options>(-1); });
 
-    project_configuration project = parser.parse(reader);
+    project_configuration project = parser.parse(configuration.project_path, reader);
     estd::log("\nProject name: {}.", project.name.c_str());
     estd::log("Defines: {}.", project.defines.size());
     estd::log("Options: {}.", project.options.size());
     estd::log("Subprojects: {}.", project.subprojects.size());
     estd::log("");
 
-    tools().register_driver<caching_compiler_driver<clang_cl_translator>>();
-    tools().register_driver<direct_linking_driver<lld_linker_translator>>();
-
-    builder::configuration configuration(tools());
-    configuration.ignore_builder_updates = cli().ignore_builder_update();
-    configuration.generate_compilation_database = false;
-
     builder instance{ configuration };
     instance.build(project);
-
-    targets().clean();
-    platforms().clean();
-      
-    cli().clean();
   }
   catch (const std::exception& error)
   {
@@ -107,8 +170,6 @@ int32_t main(int32_t count, const char** arguments)
     estd::log(error.what());
     return 1;
   }
-
-#pragma message("Checkout multithreaded builds.")
 
   return 0;
 }

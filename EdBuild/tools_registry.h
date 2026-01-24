@@ -1,7 +1,10 @@
 #pragma once
 
+#include "EdBuild.h"
 #include "compilers/compiler_driver.h"
 #include "linkers/linker_driver.h"
+
+class platform;
 
 template <typename driver_type>
 using drivers_list = std::vector<std::unique_ptr<driver_type>>;
@@ -12,7 +15,7 @@ template <typename T>
 concept is_compiler_driver = std::is_base_of_v<compiler_driver, T>;
 
 template <typename driver_type>
-using driver_creator = std::function<std::unique_ptr<driver_type>(project_configuration&)>;
+using driver_creator = std::function<std::unique_ptr<driver_type>(const platform&, project_configuration&)>;
 using compiler_driver_creator = driver_creator<compiler_driver>;
 using linker_driver_creator = driver_creator<linker_driver>;
 
@@ -27,11 +30,11 @@ public:
   {
     if constexpr (is_compiler_driver<driver_type>)
     {
-      compilers.push_back([](project_configuration& project) { return std::make_unique<driver_type>(project); });
+      compilers.push_back([](const platform& active_platform, project_configuration& project) { return std::make_unique<driver_type>(active_platform, project); });
     }
     else if constexpr (is_linker_driver<driver_type>)
     {
-      linkers.push_back([](project_configuration& project) { return std::make_unique<driver_type>(project); });
+      linkers.push_back([](const platform& active_platform, project_configuration& project) { return std::make_unique<driver_type>(active_platform, project); });
     }
     else
     {
@@ -40,20 +43,20 @@ public:
   }
 
   template <typename driver_type>
-  void create_drivers(project_configuration& project, drivers_list<driver_type>& drivers) const
+  void create_drivers(const platform& active_platform, project_configuration& project, drivers_list<driver_type>& drivers) const
   {
     if constexpr (is_compiler_driver<driver_type>)
     {
       for (const auto& creator : compilers)
       {
-        drivers.push_back(creator(project));
+        drivers.push_back(creator(active_platform, project));
       }
     }
     else if constexpr (is_linker_driver<driver_type>)
     {
       for (const auto& creator : linkers)
       {
-        drivers.push_back(creator(project));
+        drivers.push_back(creator(active_platform, project));
       }
     }
     else
@@ -65,9 +68,3 @@ private:
   std::vector<compiler_driver_creator> compilers;
   std::vector<linker_driver_creator> linkers;
 };
-
-inline tools_registry& tools()
-{
-  static tools_registry registry;
-  return registry;
-}

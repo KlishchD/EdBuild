@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cli.h"
 #include "linker_translator.h"
 
 class linker_driver
@@ -17,7 +16,8 @@ template <linker_translator translator_type>
 class direct_linking_driver : public linker_driver
 {
 public:
-  direct_linking_driver(project_configuration& project) : project(project), translator()
+  direct_linking_driver(const platform& active_platform, project_configuration& project)
+    : active_platform(active_platform), project(project), translator(active_platform)
   {
     owned_subprojects.reserve(project.subprojects.size());
     for (std::size_t subproject_index{ 0 }; subproject_index < project.subprojects.size(); ++subproject_index)
@@ -48,36 +48,28 @@ public:
       {
       case artifact_types::static_library:
       {
-        artifact.static_library().append(cli().get_intermediate_path());
+        artifact.static_library().append(subproject.output_path);
         artifact.static_library().append(subproject.name);
-        artifact.static_library().append("\\");
-        artifact.static_library().append(subproject.name);
-        artifact.static_library().append(active_platform()->get_static_library_extension());
+        artifact.static_library().append(active_platform.get_static_library_extension());
         break;
       }
       case artifact_types::dynamic_library:
       {
-        artifact.import_library().append(cli().get_intermediate_path());
+        artifact.import_library().append(subproject.output_path);
         artifact.import_library().append(subproject.name);
-        artifact.import_library().append("\\");
-        artifact.import_library().append(subproject.name);
-        artifact.import_library().append(active_platform()->get_static_library_extension());
+        artifact.import_library().append(active_platform.get_static_library_extension());
 
-        artifact.dynamic_library().append(cli().get_intermediate_path());
+        artifact.dynamic_library().append(subproject.output_path);
         artifact.dynamic_library().append(subproject.name);
-        artifact.dynamic_library().append("\\");
-        artifact.dynamic_library().append(subproject.name);
-        artifact.dynamic_library().append(active_platform()->get_dynamic_library_extension());
+        artifact.dynamic_library().append(active_platform.get_dynamic_library_extension());
 
         break;
       }
       case artifact_types::excutable:
       {
-        artifact.executable().append(cli().get_intermediate_path());
+        artifact.executable().append(subproject.output_path);
         artifact.executable().append(subproject.name);
-        artifact.executable().append("\\");
-        artifact.executable().append(subproject.name);
-        artifact.executable().append(active_platform()->get_exectuable_extension());
+        artifact.executable().append(active_platform.get_executable_extension());
         break;
       }
       default:
@@ -106,11 +98,9 @@ public:
 
       if (symbols_needed)
       {
-        artifact.symbols_database().append(cli().get_intermediate_path());
+        artifact.symbols_database().append(subproject.output_path);
         artifact.symbols_database().append(subproject.name);
-        artifact.symbols_database().append("\\");
-        artifact.symbols_database().append(subproject.name);
-        artifact.symbols_database().append(active_platform()->get_symobls_database_extension());
+        artifact.symbols_database().append(active_platform.get_symbols_database_extension());
       }
     }
   }
@@ -158,6 +148,8 @@ public:
     }
   }
 protected:
+  const platform& active_platform;
+
   project_configuration& project;
   ownership_list owned_subprojects;
   translator_type translator;

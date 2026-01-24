@@ -1,5 +1,3 @@
-#include "cli.h"
-
 inline const char* get_type_name(artifact_types type)
 {
   switch (type)
@@ -256,7 +254,7 @@ inline compilable_view project_configuration::get_source_view(std::size_t subpro
     {
 #pragma message("Plaftform dependant code.")
       result.path = subproject.sources[source_index].get_c_path();
-      result.extension = ".obj";
+      result.output_path = subproject.output_path.c_str();
 
       result.subproject_name = subproject.name.c_str();
       result.subproject_index = subproject_index;
@@ -299,7 +297,7 @@ inline compilable_view project_configuration::get_precompile_header_view(std::si
     {
 #pragma message("Plaftform dependant code.")
       result.path = subproject.precompile_header.get_c_path();
-      result.extension = ".pch";
+      result.output_path = subproject.output_path.c_str();
 
       result.subproject_name = subproject.name.c_str();
       result.subproject_index = subproject_index;
@@ -347,13 +345,4 @@ inline artifact_view project_configuration::get_artifact_view(std::size_t subpro
 inline artifacts_list project_configuration::get_artifacts() const
 {
   return artifacts_list{ const_cast<project_configuration*>(this) };
-}
-
-inline command_string get_output_path(const compilable_view& view)
-{
-  command_string result = cli().get_intermediate_path();
-  result.append(view.subproject_name);
-  append_filename(view.path, result);
-
-  return result;
 }

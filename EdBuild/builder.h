@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EdBuild.h"
 #include "compilers/compiler_orchestrator.h"
 #include "linkers/linker_orchestrator.h"
 #include "builder_cache.h"
@@ -13,20 +14,37 @@ public:
     { }
 
     const tools_registry& tools;
+
+    path_string project_path;
+    path_string intermediate_path;
+    path_string builds_path;
+
+    uint32_t threads = 0;
     bool ignore_builder_updates = false;
-    bool generate_compilation_database = true;
+    bool generate_compilation_database = false;
+
+    const platform* platform = nullptr;
+    const target* target = nullptr;
   };
 
   builder(const configuration& config)
     : config(config),
-    cache(cli().get_platform(), cli().get_target())
+    cache(config.intermediate_path, config.platform->get_marker(), config.target->get_marker())
   {
   }
 
   void build(project_configuration& project)
   {
-    compiler_orchestrator compilers(project, config.tools);
-    linker_orchestrator linkers(project, config.tools);
+    for (auto& subproject : project.subprojects)
+    {
+#pragma message("Platform depenedent code.")
+      subproject.output_path.append(config.intermediate_path);
+      subproject.output_path.append(subproject.name);
+      subproject.output_path.append("\\");
+    }
+
+    compiler_orchestrator compilers(*config.platform, project, config.tools);
+    linker_orchestrator linkers(*config.platform, project, config.tools);
 
     // Data is parsed, setting up and optimizing subproject.
     create_artifacts(compilers, linkers, project);
@@ -216,7 +234,8 @@ protected:
     {
       if (subprojects.is_preproced()) continue;
 
-      command_string path = cli().get_intermediate_path();
+      command_string path;
+      path.append(config.intermediate_path);
       path.append(subprojects.name);
 
       if (std::filesystem::exists(path.c_str()))
@@ -234,7 +253,8 @@ protected:
     for (const auto& build : project.builds)
     {
 #pragma message("Platform dependant code.")
-      command_string path = cli().get_builds_path();
+      command_string path;
+      path.append(config.builds_path);
       path.append(build.name);
       path.append("\\");
 
@@ -272,7 +292,7 @@ protected:
     commands_list dependencies_list_commands = orchestrator.generate_dependencies_update_commands();
     estd::log("\n{}Dependency list commands count{}: {}.\n", estd::colors::yellow(), estd::colors::reset(), dependencies_list_commands.size());
 
-    estd::async_shell_execute<32>(dependencies_list_commands, cli().get_threads_count());
+    estd::async_shell_execute<32>(dependencies_list_commands, config.threads);
   }
 
   void filter(compiler_orchestrator& orchestrator, project_configuration& project)
@@ -328,11 +348,11 @@ protected:
 
       compiler_output_parser& parser = *std::static_pointer_cast<compiler_output_parser>(partition.parser);
       parser.set_output_store(results);
-      parser.set_threads_count(cli().get_threads_count());
+      parser.set_threads_count(config.threads);
       parser.set_execution_policy(execution_policy::stop_on_error);
 
       estd::log("{}Partition {}{}:", estd::colors::yellow(), estd::colors::reset(), partition_index);
-      estd::async_shell_execute<32>(partition.commands, parser, cli().get_threads_count());
+      estd::async_shell_execute<32>(partition.commands, parser, config.threads);
 
       parser.clean_up();
     }
@@ -345,7 +365,7 @@ protected:
     commands_list database_entry_commands = orchestrator.generate_database_entry_commands();
     estd::log("Database entries commands count: {}.\n");
 
-    estd::async_shell_execute<32>(database_entry_commands, cli().get_threads_count());
+    estd::async_shell_execute<32>(database_entry_commands, config.threads);
 
     std::string database;
 
@@ -356,8 +376,8 @@ protected:
 
     for (compilable_view view : project.get_compilables())
     {
-      command_string database_entry_path = get_output_path(view);
-      database_entry_path.append(".dbe");
+      command_string database_entry_path;
+      view.append_output_path(config.platform->get_database_extension(), database_entry_path);
 
       //estd::log("ENTRY: {}.", database_entry_path.c_str());
 
@@ -370,7 +390,8 @@ protected:
 
     database.push_back(']');
 
-    command_string database_path = cli().get_intermediate_path();
+    command_string database_path;
+    database_path.append(config.intermediate_path);
     database_path.append("database.json");
     dump_to_file(database_path, database);
   }
@@ -392,7 +413,7 @@ protected:
     {
       const auto& partition = partitions[partition_index];
       estd::log("{}Partition{} {}:", estd::colors::yellow(), estd::colors::reset(), partition_index);
-      estd::async_shell_execute<32>(partition.commands, cli().get_threads_count());
+      estd::async_shell_execute<32>(partition.commands, config.threads);
     }
   }
 
@@ -401,7 +422,7 @@ protected:
     for (const auto& build : project.builds)
     {
 #pragma message("Platform dependant code.")
-      estd::stack_string_512 build_path_string = cli().get_builds_path();
+      path_string build_path_string = config.builds_path;
       build_path_string.append(build.name);
       build_path_string.append("\\");
 
@@ -426,13 +447,13 @@ protected:
         const bool needs_moving = artifact.type == artifact_types::dynamic_library;
         if (needs_moving)
         {
-          std::filesystem::path artifact_path = artifact.dynamic_library();
+          std::filesystem::path artifact_path = artifact.dynamic_library().c_str();
           std::filesystem::copy(artifact_path, build_path);
 
           const bool needs_symbols = artifact.symbols_database().size();
           if (needs_symbols)
           {
-            std::filesystem::path artifact_path = artifact.symbols_database();
+            std::filesystem::path artifact_path = artifact.symbols_database().c_str();
             std::filesystem::copy(artifact_path, build_path);
           }
         }
@@ -443,13 +464,13 @@ protected:
       {
         const auto& artifact = subproject.artifact;
 
-        std::filesystem::path artifact_path = artifact.output();
+        std::filesystem::path artifact_path = artifact.output().c_str();
         std::filesystem::copy(artifact_path, build_path);
 
         const bool needs_symbols = artifact.symbols_database().size();
         if (needs_symbols)
         {
-          std::filesystem::path artifact_path = artifact.symbols_database();
+          std::filesystem::path artifact_path = artifact.symbols_database().c_str();
           std::filesystem::copy(artifact_path, build_path);
         }
       }

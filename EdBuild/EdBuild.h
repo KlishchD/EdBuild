@@ -40,58 +40,7 @@
 #include "estd/json.h"
 #include "estd/hasing.h"
 #include "estd/platform.h"
-
-struct strings
-{
-  static constexpr uint32_t max_parameter_name_length = 256;
-  static constexpr uint32_t max_parameter_length = 256;
-  static constexpr uint32_t max_path_length = 260;
-  static constexpr uint32_t default_local_string_legth = 512;
-
-  static constexpr const char* target_parameter_name = "-Target";
-  static constexpr const char* platform_parameter_name = "-Platform";
-  static constexpr const char* intermediate_parameter_name = "-Intermediate";
-  static constexpr const char* builds_parameter_name = "-Builds";
-  static constexpr const char* project_parameter_name = "-Project";
-  static constexpr const char* thread_parameter_name = "-Threads";
-  static constexpr const char* ignore_builder_update_name = "-IgnoreBuilderUpdate";
-
-  static constexpr const char* instructions_path = "instructions.json";
-
-  template <uint32_t size = default_local_string_legth>
-  static inline char* string()
-  {
-    return new char[size] { 0 };
-  }
-
-  static inline void concat_inline(char* result, uint32_t result_size, const char* str)
-  {
-    uint32_t str_len = strlen(str);
-    estd::assert_condition(str_len < result_size, "Concatenation result exceeds local string size.");
-    memcpy(result, str, str_len);
-  }
-
-  template <uint32_t size = default_local_string_legth>
-  static inline const char* concat(const char* lhs, const char* rhs)
-  {
-    const uint32_t lhs_size = strlen(lhs);
-
-    char* result = string<default_local_string_legth>();
-    concat_inline(result, default_local_string_legth, lhs);
-    concat_inline(result + lhs_size, default_local_string_legth, rhs);
-    return result;
-  }
-
-  static inline void free(const char* string)
-  {
-    if (!string)
-    {
-      estd::throw_error<std::invalid_argument>("Can not deallocate nullptr string.");
-    }
-
-    delete[] string;
-  }
-};
+#include "estd/console/console.h"
 
 enum class error_types
 {
@@ -197,3 +146,6 @@ inline estd::memory_report& builder_memory_report()
   static estd::memory_report instance;
   return instance;
 }
+
+using name_string = estd::stack_string_128;
+using path_string = estd::stack_string_512;
