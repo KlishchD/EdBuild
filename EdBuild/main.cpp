@@ -127,8 +127,10 @@ int32_t main(int32_t count, const char** arguments)
 
   try
   {
-    path_string instructions_path = configuration.project_path;
-    instructions_path.append("instructions.json");
+    estd::path instructions_path;
+    instructions_path
+      .append(configuration.project_path)
+      .append("instructions.json");
 
     estd::json instructions = estd::read_json(instructions_path);
 

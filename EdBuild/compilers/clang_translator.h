@@ -266,7 +266,7 @@ public:
     }
   }
 
-  void append_include(const std::string& include, command_string& list) const
+  void append_include(const estd::path& include, command_string& list) const
   {
     if (include.empty()) return;
 
@@ -453,7 +453,7 @@ public:
     }
   }
 
-  void append_include(const std::string& include, command_string& list) const
+  void append_include(const estd::path& include, command_string& list) const
   {
     if (include.empty()) return;
 

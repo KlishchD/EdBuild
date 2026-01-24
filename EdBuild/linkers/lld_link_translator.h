@@ -32,7 +32,6 @@ public:
 #pragma message("To be moved to options to allow user selection.")
     list.append("/subsystem:CONSOLE ");
 
-#pragma message("Make one varargs function for path composition, it will allow to hide platform dependent code and make it easier to read.")
     for (compilable_view compilable : view.compilables)
     {
       compilable.append_output_path(active_platform.get_object_extension(), list);
@@ -43,11 +42,11 @@ public:
     const bool has_resources = artifact->resources.size();
     if (is_executable && has_resources)
     {
-      list.append(artifact->resources);
+      list.append(artifact->resources.c_str());
     }
 
     list.append(" /out:");
-    list.append(artifact->output());
+    list.append(artifact->output().c_str());
 
     const bool symbols_are_needed = artifact->symbols_database().size();
     if (symbols_are_needed)
@@ -55,7 +54,7 @@ public:
       list.append(" /debug:full");
 
       list.append(" /pdb:");
-      list.append(artifact->symbols_database());
+      list.append(artifact->symbols_database().c_str());
     }
 
     list.push_back(' ');
@@ -65,7 +64,7 @@ public:
     {
       for (const auto& dependency_artifact : *view.dependencies)
       {
-        list.append(dependency_artifact.input());
+        list.append(dependency_artifact.input().c_str());
         list.push_back(' ');
       }
 

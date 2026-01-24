@@ -70,7 +70,7 @@ private:
 
   void append_includes(const translator_type& translator, const include_files& includes, command_string& list) const
   {
-    for (const std::string& include : includes)
+    for (const estd::path& include : includes)
     {
       translator.append_include(include, list);
     }

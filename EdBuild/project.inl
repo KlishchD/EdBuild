@@ -253,7 +253,7 @@ inline compilable_view project_configuration::get_source_view(std::size_t subpro
     if (source_index < subproject.sources.size())
     {
 #pragma message("Plaftform dependant code.")
-      result.path = subproject.sources[source_index].get_c_path();
+      result.path = subproject.sources[source_index].c_str();
       result.output_path = subproject.output_path.c_str();
 
       result.subproject_name = subproject.name.c_str();
@@ -296,7 +296,7 @@ inline compilable_view project_configuration::get_precompile_header_view(std::si
     if (subproject.precompile_header.is_present())
     {
 #pragma message("Plaftform dependant code.")
-      result.path = subproject.precompile_header.get_c_path();
+      result.path = subproject.precompile_header.c_str();
       result.output_path = subproject.output_path.c_str();
 
       result.subproject_name = subproject.name.c_str();

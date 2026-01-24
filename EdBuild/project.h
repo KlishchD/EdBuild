@@ -96,13 +96,14 @@ private:
 
 struct compilable_description
 {
-  path_string path;
+  estd::path path;
   filter_status status;
 
   compilable_description();
 
-  template <typename string_type>
-  compilable_description(const string_type& path) : path(path.c_str()), status() {}
+  compilable_description(const estd::path& path) : path(path), status() {}
+  compilable_description(estd::path&& path) : path(std::move(path)), status() {}
+
   compilable_description(const char* path) : path(path), status() {}
 
   compilable_description(const compilable_description& other);
@@ -114,14 +115,14 @@ struct compilable_description
   inline bool is_present() const { return path.size(); }
   inline bool is_not_present() const { return path.empty(); }
 
-  inline const char* get_c_path() const { return path.c_str(); }
+  inline const char* c_str() const { return path.c_str(); }
   inline uint32_t get_hash() const { return estd::crc32_append_string(0, path); }
 };
 
 using option_descriptions = std::vector<option_description>;
 using define_descriptions = std::vector<define_description>;
 using source_files = std::vector<compilable_description>;
-using include_files = std::vector<std::string>;
+using include_files = std::vector<estd::path>;
 using dependats_list = std::vector<std::size_t>;
 
 using dependant_subprojects_list = std::vector<std::size_t>;
@@ -139,46 +140,46 @@ inline const char* get_type_name(artifact_types type);
 struct artifact_description
 {
   // Workaround, because you can not make a nice union with std::strings.
-  path_string field1;
-  path_string field2;
-  path_string field3;
-  path_string resources;
+  estd::path field1;
+  estd::path field2;
+  estd::path field3;
+  estd::path resources;
 
   artifact_types type;
   bool preproduced;
 
-  inline const path_string& input() const { return type == artifact_types::static_library ? static_library() : import_library(); }
-  inline const path_string& output() const { return field2; }
+  inline const estd::path& input() const { return type == artifact_types::static_library ? static_library() : import_library(); }
+  inline const estd::path& output() const { return field2; }
 
-  inline const path_string& import_library() const { return field1; };
-  inline path_string& import_library() { return field1; };
+  inline const estd::path& import_library() const { return field1; };
+  inline estd::path& import_library() { return field1; };
 
-  inline void import_library(const path_string& path) { field1 = path; }
-  inline void import_library(path_string&& path) { field1 = std::move(path); }
+  inline void import_library(const estd::path& path) { field1 = path; }
+  inline void import_library(estd::path&& path) { field1 = std::move(path); }
 
-  inline const path_string& dynamic_library() const { return field2; };
-  inline path_string& dynamic_library() { return field2; };
+  inline const estd::path& dynamic_library() const { return field2; };
+  inline estd::path& dynamic_library() { return field2; };
 
-  inline void dynamic_library(const path_string& path) { field2 = path; }
-  inline void dynamic_library(path_string&& path) { field2 = std::move(path); }
+  inline void dynamic_library(const estd::path& path) { field2 = path; }
+  inline void dynamic_library(estd::path&& path) { field2 = std::move(path); }
 
-  inline const path_string& static_library() const { return field2; };
-  inline path_string& static_library() { return field2; };
+  inline const estd::path& static_library() const { return field2; };
+  inline estd::path& static_library() { return field2; };
 
-  inline void static_library(const path_string& path) { field2 = path; }
-  inline void static_library(path_string&& path) { field2 = std::move(path); }
+  inline void static_library(const estd::path& path) { field2 = path; }
+  inline void static_library(estd::path&& path) { field2 = std::move(path); }
 
-  inline const path_string& executable() const { return field2; };
-  inline path_string& executable() { return field2; };
+  inline const estd::path& executable() const { return field2; };
+  inline estd::path& executable() { return field2; };
 
-  inline void executable(const path_string& path) { field2 = path; }
-  inline void executable(path_string&& path) { field2 = std::move(path); }
+  inline void executable(const estd::path& path) { field2 = path; }
+  inline void executable(estd::path&& path) { field2 = std::move(path); }
 
-  inline const path_string& symbols_database() const { return field3; };
-  inline path_string& symbols_database() { return field3; };
+  inline const estd::path& symbols_database() const { return field3; };
+  inline estd::path& symbols_database() { return field3; };
 
-  inline void symbols_database(const path_string& path) { field3 = path; }
-  inline void symbols_database(path_string&& path) { field3 = std::move(path); }
+  inline void symbols_database(const estd::path& path) { field3 = path; }
+  inline void symbols_database(estd::path&& path) { field3 = std::move(path); }
 };
 
 using artifact_dependencies_list = std::vector<artifact_description>;
@@ -186,7 +187,7 @@ using artifact_dependencies_list = std::vector<artifact_description>;
 struct subproject_configuration
 {
   name_string name;
-  path_string output_path;
+  estd::path output_path;
 
   option_descriptions options;
   define_descriptions defines;
@@ -252,6 +253,7 @@ struct build_configuration
 {
   name_string name;
   name_string subproject_name;
+  estd::path output_path;
 };
 
 using build_configurations = std::vector<build_configuration>;

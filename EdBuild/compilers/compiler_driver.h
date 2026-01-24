@@ -53,14 +53,13 @@ public:
 
         estd::log("{}Dependency entry{}: [{}] [{}].", estd::colors::green(), estd::colors::reset(), view.subproject_name, view.path);
 
-        command_string list_path;
+#pragma message("List could be updated by updating dependencies themselves, need to handle this as well.")
+        estd::path list_path;
         view.append_output_path(active_platform.get_dependencies_extension(), list_path);
 
-#pragma message("List could be updated by updating dependencies themselves, need to handle this as well.")
-        const bool list_exists = std::filesystem::exists(list_path.c_str());
-        if (list_exists)
+        if (list_path.exists())
         {
-          const auto list_update_time = std::filesystem::last_write_time(list_path.c_str());
+          const auto list_update_time = list_path.get_last_write_time();
           const auto source_update_time = std::filesystem::last_write_time(view.path);
           const bool is_up_to_date = list_update_time > source_update_time;
           if (is_up_to_date) continue;
@@ -99,18 +98,17 @@ public:
         {
           do
           {
-            command_string target_path;
+            estd::path target_path;
             view.append_output_path(active_platform.get_compilable_extension(view.is_source), target_path);
 
-            const bool object_file_is_not_present = !std::filesystem::exists(target_path.c_str());
-            if (object_file_is_not_present) { view.status->set_object_files_is_not_present(); break; }
+            if (!target_path.exists()) { view.status->set_object_files_is_not_present(); break; }
 
-            const auto compilation_time = std::filesystem::last_write_time(target_path.c_str());
+            const auto compilation_time = target_path.get_last_write_time();
             const auto compilable_update_time = std::filesystem::last_write_time(view.path);
             const bool compilable_was_updated = compilable_update_time > compilation_time;
             if (compilable_was_updated) { view.status->set_compilable_was_updated(); break; }
 
-            command_string dependencies_list_path;
+            estd::path dependencies_list_path;
             view.append_output_path(active_platform.get_dependencies_extension(), dependencies_list_path);
 
             std::ifstream file(dependencies_list_path.c_str(), std::ios_base::in);

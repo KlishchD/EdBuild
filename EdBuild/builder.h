@@ -15,9 +15,9 @@ public:
 
     const tools_registry& tools;
 
-    path_string project_path;
-    path_string intermediate_path;
-    path_string builds_path;
+    estd::path project_path;
+    estd::path intermediate_path;
+    estd::path builds_path;
 
     uint32_t threads = 0;
     bool ignore_builder_updates = false;
@@ -37,10 +37,16 @@ public:
   {
     for (auto& subproject : project.subprojects)
     {
-#pragma message("Platform depenedent code.")
-      subproject.output_path.append(config.intermediate_path);
-      subproject.output_path.append(subproject.name);
-      subproject.output_path.append("\\");
+      subproject.output_path
+        .append(config.intermediate_path)
+        .append(subproject.name);
+    }
+
+    for (auto& build : project.builds)
+    {
+      build.output_path
+        .append(config.builds_path)
+        .append(build.name);
     }
 
     compiler_orchestrator compilers(*config.platform, project, config.tools);
@@ -113,7 +119,7 @@ protected:
 
       const char* status = artifact.preproduced ? "preproduced" : "generated";
       const char* output = artifact.field2.c_str();
-      const char* input = artifact.field1.size() ? artifact.field1.c_str() : "None";
+      const char* input = artifact.field1.empty() ? "None" : artifact.field1.c_str();
       estd::log("{}{}{}: {}, {}, {}, {}.", estd::colors::green(), subproject.name.c_str(), estd::colors::reset(), get_type_name(artifact.type), status, output, input);
     }
   }
@@ -209,7 +215,7 @@ protected:
     {
       estd::log("{}{}{} was {} and became {} with {} dependencies and {} includes.",
         estd::colors::green(),
-        subproject.name.c_str(),
+        subproject.name,
         estd::colors::reset(),
         subproject.original_rank, subproject.rank,
         subproject.artifact_dependencies.size(), subproject.includes.size());
@@ -219,10 +225,10 @@ protected:
     for (const auto& subproject : project.subprojects)
     {
       const char* description = subproject.artifact_dependencies.size() ? "" : "None.";
-      estd::log("{}{}{}: {}", estd::colors::green(), subproject.name.c_str(), estd::colors::reset(), description);
+      estd::log("{}{}{}: {}", estd::colors::green(), subproject.name, estd::colors::reset(), description);
       for (const auto& artifact : subproject.artifact_dependencies)
       {
-        estd::log("[{}] - [{}].", artifact.field1.c_str(), artifact.field2.c_str());
+        estd::log("[{}] - [{}].", artifact.field1, artifact.field2);
       }
     }
   }
@@ -230,22 +236,19 @@ protected:
   void setup_directories(const project_configuration& project)
   {
     estd::log("\n{}Intermedite directory setup{}:", estd::colors::yellow(), estd::colors::reset());
-    for (const auto& subprojects : project.subprojects)
+    for (const auto& subproject : project.subprojects)
     {
-      if (subprojects.is_preproced()) continue;
+      if (subproject.is_preproced()) continue;
 
-      command_string path;
-      path.append(config.intermediate_path);
-      path.append(subprojects.name);
+      const estd::path& output_path = subproject.output_path;
 
-      if (std::filesystem::exists(path.c_str()))
+      if (output_path.create_directory())
       {
-        estd::log("{}Intermediate directory detected{}: [{}].", estd::colors::green(), estd::colors::reset(), path.c_str());
+        estd::log("{}Intermediate directory created{}: [{}].", estd::colors::green(), estd::colors::reset(), output_path);
       }
       else
       {
-        std::filesystem::create_directories(path.c_str());
-        estd::log("{}Intermediate directory created{}: [{}].", estd::colors::green(), estd::colors::reset(), path.c_str());
+        estd::log("{}Intermediate directory detected{}: [{}].", estd::colors::green(), estd::colors::reset(), output_path);
       }
     }
 
@@ -253,19 +256,15 @@ protected:
     for (const auto& build : project.builds)
     {
 #pragma message("Platform dependant code.")
-      command_string path;
-      path.append(config.builds_path);
-      path.append(build.name);
-      path.append("\\");
+      const estd::path& output_path = build.output_path;
 
-      if (std::filesystem::exists(path.c_str()))
+      if (output_path.remove_all())
       {
-        std::filesystem::remove_all(path.c_str());
-        estd::log("{}Build directory cleared up{}: [{}].", estd::colors::green(), estd::colors::reset(), path.c_str());
+        estd::log("{}Build directory cleared up{}: [{}].", estd::colors::green(), estd::colors::reset(), output_path);
       }
 
-      std::filesystem::create_directories(path.c_str());
-      estd::log("{}Build directory created{}: [{}].", estd::colors::green(), estd::colors::reset(), path.c_str());
+      output_path.create_directory();
+      estd::log("{}Build directory created{}: [{}].", estd::colors::green(), estd::colors::reset(), output_path);
     }
   }
 
@@ -376,24 +375,26 @@ protected:
 
     for (compilable_view view : project.get_compilables())
     {
-      command_string database_entry_path;
-      view.append_output_path(config.platform->get_database_extension(), database_entry_path);
+      estd::path source_path;
+      view.append_output_path(config.platform->get_database_extension(), source_path);
 
       //estd::log("ENTRY: {}.", database_entry_path.c_str());
 
-      if (std::filesystem::exists(database_entry_path.c_str()))
+      if (source_path.exists())
       {
-        append_file_data(database_entry_path, database);
+        estd::append_file_data(source_path, database);
         database.push_back('\n');
       }
     }
 
     database.push_back(']');
 
-    command_string database_path;
-    database_path.append(config.intermediate_path);
-    database_path.append("database.json");
-    dump_to_file(database_path, database);
+    estd::path database_path;
+    database_path
+      .append(config.intermediate_path)
+      .append("database.json");
+
+    estd::dump_to_file(database_path, database);
   }
 
   void link(linker_orchestrator& linkers, project_configuration& project)
@@ -421,14 +422,7 @@ protected:
   {
     for (const auto& build : project.builds)
     {
-#pragma message("Platform dependant code.")
-      path_string build_path_string = config.builds_path;
-      build_path_string.append(build.name);
-      build_path_string.append("\\");
-
-      estd::log("Generating [{}] build.", build.name.c_str());
-
-      std::filesystem::path build_path = build_path_string.c_str();
+      estd::log("Generating [{}] build.", build.name);
 
       auto name_predicate = [&search_name = build.subproject_name](const subproject_configuration& subproject)
         { return subproject.name == search_name; };
@@ -442,20 +436,14 @@ protected:
 
       const auto& subproject = *subproject_it;
 
+      const estd::path& output_path = build.output_path;
       for (const auto& artifact : subproject.artifact_dependencies)
       {
         const bool needs_moving = artifact.type == artifact_types::dynamic_library;
         if (needs_moving)
         {
-          std::filesystem::path artifact_path = artifact.dynamic_library().c_str();
-          std::filesystem::copy(artifact_path, build_path);
-
-          const bool needs_symbols = artifact.symbols_database().size();
-          if (needs_symbols)
-          {
-            std::filesystem::path artifact_path = artifact.symbols_database().c_str();
-            std::filesystem::copy(artifact_path, build_path);
-          }
+          artifact.dynamic_library().copy_to(output_path);
+          artifact.symbols_database().copy_to(output_path);
         }
       }
 
@@ -463,16 +451,8 @@ protected:
       if (needs_moving)
       {
         const auto& artifact = subproject.artifact;
-
-        std::filesystem::path artifact_path = artifact.output().c_str();
-        std::filesystem::copy(artifact_path, build_path);
-
-        const bool needs_symbols = artifact.symbols_database().size();
-        if (needs_symbols)
-        {
-          std::filesystem::path artifact_path = artifact.symbols_database().c_str();
-          std::filesystem::copy(artifact_path, build_path);
-        }
+        artifact.output().copy_to(output_path);
+        artifact.symbols_database().copy_to(output_path);
       }
     }
   }

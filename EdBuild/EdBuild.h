@@ -38,6 +38,7 @@
 #include "estd/threading.h"
 #include "estd/memory.h"
 #include "estd/json.h"
+#include "estd/path.h"
 #include "estd/hasing.h"
 #include "estd/platform.h"
 #include "estd/console/console.h"
@@ -82,8 +83,8 @@ inline const char* get_type_color(error_types type)
   }
 }
 
-using file_clock = std::chrono::file_clock;
-using file_time = std::filesystem::file_time_type;
+using file_clock = estd::file_clock;
+using file_time = estd::file_time;
 
 using command_string = estd::stack_string_8192;
 using command_strings = std::vector<command_string>;
@@ -123,24 +124,6 @@ struct commands_partition
 
 using commands_partitions = std::vector<commands_partition>;
 
-#pragma message("Needs better organization.")
-inline void append_file_data(const command_string& filepath, std::string& store)
-{
-  std::ifstream file(filepath.c_str(), std::ios_base::in);
-
-  command_string line;
-  while (std::getline(file, line))
-  {
-    store.append(line);
-  }
-}
-
-inline void dump_to_file(const command_string& filepath, const std::string& data)
-{
-  std::ofstream file(filepath.c_str(), std::ios_base::out);
-  file << data;
-}
-
 inline estd::memory_report& builder_memory_report()
 {
   static estd::memory_report instance;
@@ -148,4 +131,3 @@ inline estd::memory_report& builder_memory_report()
 }
 
 using name_string = estd::stack_string_128;
-using path_string = estd::stack_string_512;

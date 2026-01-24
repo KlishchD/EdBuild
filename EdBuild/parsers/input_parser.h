@@ -18,7 +18,7 @@ public:
     option_parsers.push_back(parser);
   }
 
-  project_configuration parse(const path_string& project_path, input_reader& reader) const
+  project_configuration parse(const estd::path& project_path, input_reader& reader) const
   {
     estd::log("Project parsing starts.");
 
@@ -118,7 +118,7 @@ protected:
   }
 
   template <typename project_type>
-  inline void parse_project(const path_string& project_path, input_reader& reader, project_type& project, dependencies_list& dependencies) const
+  inline void parse_project(const estd::path& project_path, input_reader& reader, project_type& project, dependencies_list& dependencies) const
   {
     estd::log("Started parsing project.");
     project.name = reader.project_name()->c_str();
@@ -162,15 +162,17 @@ protected:
         const std::string* source = reader.next_source();
         if (!source) continue;
 
-        path_string path = project_path;
-        path.append(source->c_str());
-
-        if (std::filesystem::is_directory(path.c_str()))
-        {
-          project.includes.push_back(path.c_str());
-        }
+        estd::path path;
+        path
+          .append(project_path)
+          .append(source->c_str());
 
         append_all_files(path, ".cpp", project.sources);
+
+        if (path.is_directory())
+        {
+          project.includes.push_back(std::move(path));
+        }
       }
 
       while (reader.has_next_include())
@@ -178,24 +180,26 @@ protected:
         const std::string* include = reader.next_include();
         if (!include) continue;
 
-        path_string path = project_path;
-        path.append(include->c_str());
-
-        project.includes.push_back(path.c_str());
+        project.includes.emplace_back();
+        project.includes.back()
+          .append(project_path)
+          .append(include->c_str());
       }
 
       if (const std::string* precompile_header = reader.precompile_header())
       {
-        path_string path = project_path;
-        path.append(precompile_header->c_str());
+        estd::path& path = project.precompile_header.path;
+        path.append(project_path).append(precompile_header->c_str());
 
-        const bool path_is_not_present = !std::filesystem::exists(path.c_str());
-        if (path_is_not_present) estd::throw_error<std::invalid_argument>("Cound't find a precompile header [{}].", path.c_str());
+        if (!path.exists())
+        {
+          estd::throw_error<std::invalid_argument>("Cound't find a precompile header [{}].", path);
+        }
 
-        const bool is_directory = std::filesystem::is_directory(path.c_str());
-        if (is_directory) estd::throw_error<std::invalid_argument>("Expected precompile header [{}] to be a file not a directory.", path.c_str());
-
-        project.precompile_header = path;
+        if (path.is_directory())
+        {
+          estd::throw_error<std::invalid_argument>("Expected precompile header [{}] to be a file not a directory.", path);
+        }
       }
 
       const std::string* artifact_type = reader.artifact_type();
@@ -285,20 +289,23 @@ protected:
   }
 
   template <typename destination_type>
-  inline void append_all_files(const path_string& path, const char* extension, destination_type& destination) const
+  inline void append_all_files(const estd::path& path, const char* extension, destination_type& destination) const
   {
     // TODO: This does way to many allocations, need to explore custom wrappers, or accept it as part of file manipulation life.
-    const bool path_is_not_present = !std::filesystem::exists(path.c_str());
-    if (path_is_not_present) estd::throw_error<std::invalid_argument>("Cound't find a source [{}].", path.c_str());
+    if (!path.exists()) estd::throw_error<std::invalid_argument>("Cound't find a source [{}].", path);
 
-    const bool is_file = !std::filesystem::is_directory(path.c_str());
-    if (is_file) { destination.emplace_back(path.c_str()); return; }
-
-    for (const std::filesystem::directory_entry& entry : std::filesystem::recursive_directory_iterator(path.c_str()))
+    if (path.is_directory())
     {
-      const std::filesystem::path& path = entry.path();
-      if (path.extension().compare(extension)) continue;
-      destination.emplace_back(path.string());
+      for (const std::filesystem::directory_entry& entry : std::filesystem::recursive_directory_iterator(path.c_str()))
+      {
+        const std::filesystem::path& path = entry.path();
+        if (path.extension().compare(extension)) continue;
+        destination.emplace_back(path.string().c_str());
+      }
+    }
+    else
+    {
+      destination.push_back(path);
     }
   }
 protected:
