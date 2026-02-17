@@ -1,6 +1,6 @@
 #pragma once
 
-#include "project.h"
+#include "configurations/project.h"
 
 template <typename tested_type>
 concept compiler_translator = requires(tested_type object, command_string& command) {

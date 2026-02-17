@@ -1,64 +1,80 @@
 #pragma once
 
-class input_reader
+struct modifier_data
+{
+  const char* name = nullptr;
+  const char* value = nullptr;
+  const char* platforms = nullptr;
+  const char* targets = nullptr;
+};
+
+class globals_reader
 {
 public:
-  // TODO: Consider collapsing these.
-  struct option_data
-  {
-    const std::string* name = nullptr;
-    const std::string* value = nullptr;
-    const std::string* platforms = nullptr;
-    const std::string* targets = nullptr;
-  };
+  virtual bool read_next_option(modifier_data& output) = 0;
+  virtual bool read_next_define(modifier_data& output) = 0;
+};
 
-  struct define_data
-  {
-    const std::string* name = nullptr;
-    const std::string* value = nullptr;
-    const std::string* platforms = nullptr;
-    const std::string* targets = nullptr;
-  };
+class modifier_list_reader
+{
+public:
+  virtual const char* read_name() = 0;
+  virtual std::size_t count() = 0;
 
-  virtual bool is_project_name_present() const = 0;
-  virtual bool is_globals_list_present() const = 0;
-  virtual bool is_projects_list_present() const = 0;
-  virtual bool is_builds_list_present() const = 0;
+  // Mutually exclusive.
+  virtual bool read_next_option(modifier_data& output) = 0;
+  virtual bool read_next_define(modifier_data& output) = 0;
 
-  virtual bool has_next_option() const = 0;
-  virtual option_data next_option() = 0;
+  virtual bool next() = 0;
+};
 
-  virtual bool has_next_define() const = 0;
-  virtual define_data next_define() = 0;
+class projects_reader
+{
+public:
+  virtual const char* read_name() = 0;
+  virtual std::size_t count() = 0;
 
-  virtual bool has_next_source() const = 0;
-  virtual const std::string* next_source() = 0;
+  virtual bool read_next_option(modifier_data& output) = 0;
+  virtual bool read_next_define(modifier_data& output) = 0;
 
-  virtual bool has_next_include() const = 0;
-  virtual const std::string* next_include() = 0;
+  virtual bool read_next_source(const char*& source_path) = 0;
+  virtual bool read_next_include(const char*& include_path) = 0;
 
-  virtual bool has_next_dependency() const = 0;
-  virtual const std::string* next_dependency() = 0;
+  virtual const char* read_precompile_header_path() = 0;
 
-  virtual const std::string* precompile_header() const = 0;
+  virtual const char* read_artifact_type() = 0;
+  virtual const char* read_resources_path() = 0;
 
-  virtual const std::string* artifact_type() const = 0;
-  virtual const std::string* resources() const = 0;
+  virtual const char* read_static_library_path() = 0;
+  virtual const char* read_import_library_path() = 0;
+  virtual const char* read_dynamic_library_path() = 0;
+  virtual const char* read_executable_path() = 0;
 
-  virtual const std::string* static_library() const = 0;
-  virtual const std::string* import_library() const = 0;
-  virtual const std::string* dynamic_library() const = 0;
-  virtual const std::string* executable() const = 0;
+  virtual bool read_next_dependency(const char*& path) = 0;
 
-  virtual const std::string* project_name() const = 0;
+  virtual bool next() = 0;
+};
 
-  virtual bool is_subproject_valid() const = 0;
-  virtual bool has_next_subproject() const = 0;
-  virtual void next_subproject() = 0;
+class builds_reader
+{
+public:
+  virtual const char* read_name() = 0;
+  virtual std::size_t count() = 0;
 
-  virtual bool has_next_build() const = 0;
-  virtual bool next_build() = 0;
+  virtual bool read_next_option(modifier_data& output) = 0;
+  virtual bool read_next_define(modifier_data& output) = 0;
 
-  virtual const std::string* build_name() const = 0;
-  virtual const std::string* build_subproject_name() const = 0;
+  virtual const char* read_subprorject() = 0;
+
+  virtual bool next() = 0;
+};
+
+class instructions_reader
+{
+public:
+  virtual globals_reader* read_globals() = 0;
+  virtual modifier_list_reader* read_options_modifiers() = 0;
+  virtual modifier_list_reader* read_defines_modifiers() = 0;
+  virtual projects_reader* read_projects() = 0;
+  virtual builds_reader* read_builds() = 0;
 };

@@ -132,9 +132,8 @@ int32_t main(int32_t count, const char** arguments)
       .append(configuration.project_path)
       .append("instructions.json");
 
-    estd::json instructions = estd::read_json(instructions_path);
-
-    json_reader reader{ instructions };
+    estd::json instructions_source = estd::read_json(instructions_path);
+    json_instructions_reader reader{ instructions_source };
     
     builder_input_parser parser{ *configuration.platform, *configuration.target};
     parser.register_option_parser([](const std::string& name) { return name == "C++" ? builder_options::language_standard : static_cast<builder_options>(-1); });
@@ -142,15 +141,15 @@ int32_t main(int32_t count, const char** arguments)
     parser.register_option_parser([](const std::string& name) { return name == "GenerateDebugInformation" ? builder_options::generate_debug_information : static_cast<builder_options>(-1); });
     parser.register_option_parser([](const std::string& name) { return name == "GenerateSymbolsDatabase" ? builder_options::generate_symbols_database : static_cast<builder_options>(-1); });
 
-    project_configuration project = parser.parse(configuration.project_path, reader);
-    estd::log("\nProject name: {}.", project.name.c_str());
-    estd::log("Defines: {}.", project.defines.size());
-    estd::log("Options: {}.", project.options.size());
-    estd::log("Subprojects: {}.", project.subprojects.size());
-    estd::log("");
+    instructions_description instructions = parser.parse(configuration.project_path, &reader);
+
+    estd::log("Option modifiers: {}.", instructions.modifiers.options.size());
+    estd::log("Define modifiers: {}.", instructions.modifiers.defines.size());
+    estd::log("Subprojects: {}.", instructions.project.subprojects.size());
+    estd::log("Builds: {}.", instructions.builds.size());
 
     builder instance{ configuration };
-    instance.build(project);
+    instance.build(instructions);
   }
   catch (const std::exception& error)
   {

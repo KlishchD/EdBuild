@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EdBuild.h"
+#include "configurations/instructions.h"
 #include "compilers/compiler_orchestrator.h"
 #include "linkers/linker_orchestrator.h"
 #include "builder_cache.h"
@@ -33,8 +34,11 @@ public:
   {
   }
 
-  void build(project_configuration& project)
+  void build(instructions_description& instructions)
   {
+    project_configuration& project = instructions.project;
+    builds_configurations& builds = instructions.builds;
+
     for (auto& subproject : project.subprojects)
     {
       subproject.output_path
@@ -42,7 +46,7 @@ public:
         .append(subproject.name);
     }
 
-    for (auto& build : project.builds)
+    for (auto& build : builds)
     {
       build.output_path
         .append(config.builds_path)
@@ -60,7 +64,7 @@ public:
     orchestrators_preparation(compilers, linkers);
 
     // Building preparations.
-    setup_directories(project);
+    setup_directories(project, builds);
 
     // Compiling.
     compilation_preparations(compilers, project);
@@ -97,7 +101,7 @@ public:
     cache.update_cache(project);
 
     // Composition.
-    generate_builds(project);
+    generate_builds(builds);
 
     // Utilities.
     if (config.generate_compilation_database)
@@ -233,7 +237,7 @@ protected:
     }
   }
 
-  void setup_directories(const project_configuration& project)
+  void setup_directories(const project_configuration& project, const builds_configurations& builds)
   {
     estd::log("\n{}Intermedite directory setup{}:", estd::colors::yellow(), estd::colors::reset());
     for (const auto& subproject : project.subprojects)
@@ -253,7 +257,7 @@ protected:
     }
 
     estd::log("\n{}Builds directory setup{}:", estd::colors::yellow(), estd::colors::reset());
-    for (const auto& build : project.builds)
+    for (const auto& build : builds)
     {
 #pragma message("Platform dependant code.")
       const estd::path& output_path = build.output_path;
@@ -418,25 +422,15 @@ protected:
     }
   }
 
-  void generate_builds(const project_configuration& project)
+  void generate_builds(const builds_configurations& builds)
   {
-    for (const auto& build : project.builds)
+    for (const auto& build : builds)
     {
       estd::log("Generating [{}] build.", build.name);
 
-      auto name_predicate = [&search_name = build.subproject_name](const subproject_configuration& subproject)
-        { return subproject.name == search_name; };
+      const auto& output_path = build.output_path;
+      const auto& subproject = *build.subproject;
 
-      const auto& subprojects = project.subprojects;
-      auto subproject_it = std::find_if(subprojects.begin(), subprojects.end(), name_predicate);
-
-      estd::assert_condition(subproject_it != subprojects.end(),
-        "Failed to find subproject [{}] for build [{}] creation.",
-        build.subproject_name.c_str(), build.name.c_str());
-
-      const auto& subproject = *subproject_it;
-
-      const estd::path& output_path = build.output_path;
       for (const auto& artifact : subproject.artifact_dependencies)
       {
         const bool needs_moving = artifact.type == artifact_types::dynamic_library;

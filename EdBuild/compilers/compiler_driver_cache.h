@@ -52,7 +52,7 @@ public:
     if (needs_precompile_header) list.append(precompile_headers_suffixes[subproject_index]);
   }
 private:
-  void append_options(const translator_type& translator, const option_descriptions& options, command_string& list) const
+  void append_options(const translator_type& translator, const options_list& options, command_string& list) const
   {
     for (const option_description& option : options)
     {
@@ -60,7 +60,7 @@ private:
     }
   }
 
-  void append_defines(const translator_type& translator, const define_descriptions& defines, command_string& list) const
+  void append_defines(const translator_type& translator, const defines_list& defines, command_string& list) const
   {
     for (const define_description& define : defines)
     {
@@ -68,7 +68,7 @@ private:
     }
   }
 
-  void append_includes(const translator_type& translator, const include_files& includes, command_string& list) const
+  void append_includes(const translator_type& translator, const includes_list& includes, command_string& list) const
   {
     for (const estd::path& include : includes)
     {
