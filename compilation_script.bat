@@ -1,6 +1,6 @@
 @echo off
 
-set project_path=%CD%\
+set project_path=%CD%
 set intermediate_path=%project_path%\Intermediate\
 set builds_path=%project_path%\Builds\
 
