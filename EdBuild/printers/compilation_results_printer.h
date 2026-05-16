@@ -35,7 +35,7 @@ namespace building
       printer& set_ordering(orderings new_ordering);
       printer& set_sources(sources new_source);
       printer& set_method(methods new_method);
-      printer& print(compilation_results_list& results) const;
+      printer& print(compilation_results_list& results);
     protected:
       sources source;
       methods method;
