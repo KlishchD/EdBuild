@@ -2,7 +2,7 @@
 
 #include "EdBuild.h"
 
-struct builder_cache
+class builder_cache
 {
 public:
   builder_cache(const estd::path& intermediate_path, char platfrom, char target)
