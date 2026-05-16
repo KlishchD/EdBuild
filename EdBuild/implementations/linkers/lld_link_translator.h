@@ -1,6 +1,6 @@
 #pragma once
 
-#include "linker_translator.h"
+#include "linkers/linker_translator.h"
 
 class lld_linker_translator
 {

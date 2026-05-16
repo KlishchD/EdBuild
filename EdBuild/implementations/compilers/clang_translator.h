@@ -1,6 +1,6 @@
 #pragma once
 
-#include "compiler_translator.h"
+#include "compilers/compiler_translator.h"
 
 class clang_output_parser : public compiler_output_parser
 {
@@ -257,7 +257,7 @@ public:
   void append_define(const define_description& define, command_string& list) const
   {
     list.append(" -D");
-    list.append(define.key);
+    list.append(define.name);
 
     if (define.value.size())
     {
@@ -357,9 +357,11 @@ protected:
     case builder_options::language_standard: return convert_language_standard_option(option);
     case builder_options::waringings_level: return convert_warnings_level_option(option);
     case builder_options::disable_warnings: return convert_disable_warnings_option(option);
+    case builder_options::no_return_error: return convert_no_return_error_option(option);
+
     case builder_options::generate_debug_information: return option.value == "1" ? "-g" : "";
 
-    // Non relevant options list
+    // Non relevant options list.
     case builder_options::generate_symbols_database:
     case builder_options::symbols_database_source:
       break;
@@ -422,6 +424,14 @@ protected:
     estd::throw_error<std::invalid_argument>("Provided disable warnings value is not supported [{}].", option.value);
     return "";
   }
+
+  inline command_string convert_no_return_error_option(const option_description& option) const
+  {
+    if (option.value == "1") return "-Werror=return-type";
+    if (option.value == "0") return "";
+    estd::throw_error<std::invalid_argument>("Provided no return error value is not supported [{}].", option.value);
+    return "";
+  }
 protected:
   const platform& active_platform;
 };
@@ -444,7 +454,7 @@ public:
   void append_define(const define_description& define, command_string& list) const
   {
     list.append(" /D");
-    list.append(define.key);
+    list.append(define.name);
 
     if (define.value.size())
     {
@@ -547,8 +557,8 @@ public:
 
     //estd::log("FOUND: [{}]", std::string_view(dependency_line.begin() + word_start, dependency_line.begin() + word_end));
 
-    std::string_view path_view(dependency_line.c_str() + word_start, dependency_line.c_str() + word_end);
-    return std::filesystem::last_write_time(path_view);
+    estd::path path(dependency_line.c_str() + word_start, word_end - word_start);
+    return path.get_last_write_time();
   }
 
   command_output_parser_ptr create_parser() const
@@ -563,6 +573,7 @@ protected:
     case builder_options::language_standard: return convert_language_standard_option(option);
     case builder_options::waringings_level: return convert_warnings_level_option(option);
     case builder_options::disable_warnings: return convert_disable_warnings_option(option);
+    case builder_options::no_return_error: return convert_no_return_error_option(option);
 
     case builder_options::generate_debug_information: return option.value == "1" ? "/Z7" : "";
 
@@ -626,6 +637,14 @@ protected:
     if (option.value == "1") return "/W0";
     if (option.value == "0") return "";
     estd::throw_error<std::invalid_argument>("Provided disable warnings value is not supported [{}].", option.value);
+    return "";
+  }
+
+  inline command_string convert_no_return_error_option(const option_description& option) const
+  {
+    if (option.value == "1") return "-Werror=return-type"; // "/we4715";
+    if (option.value == "0") return "";
+    estd::throw_error<std::invalid_argument>("Provided no return error value is not supported [{}].", option.value);
     return "";
   }
 protected:
