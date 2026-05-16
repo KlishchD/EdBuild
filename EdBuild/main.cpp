@@ -7,8 +7,9 @@
 #include "builder.h"
 #include "readers/json_reader.h"
 #include "parsers/input_parser.h"
-#include "compilers/clang_translator.h"
-#include "linkers/lld_link_translator.h"
+
+#include "implementations/compilers/clang_translator.h"
+#include "implementations/linkers/lld_link_translator.h"
 
 void* operator new(size_t size)
 {
