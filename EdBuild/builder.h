@@ -5,6 +5,7 @@
 #include "compilers/compiler_orchestrator.h"
 #include "linkers/linker_orchestrator.h"
 #include "builder_cache.h"
+#include "printers/compilation_results_printer.h"
 
 class builder
 {
@@ -72,30 +73,9 @@ public:
     filter(compilers, project);
 
     auto compilation_output = compile(compilers, project);
-    if (compilation_output.size())
-    {
-      std::sort(compilation_output.begin(), compilation_output.end(),
-        [](const compilation_result& left, const compilation_result& right) {
-          return static_cast<uint32_t>(left.type) < static_cast<uint32_t>(right.type);
-        });
-
-      estd::log("\n{}Compilations results{}:", estd::colors::yellow(), estd::colors::reset());
-      for (const auto& output : compilation_output)
-      {
-        const char* name = get_type_name(output.type);
-        const char* color = get_type_color(output.type);
-
-        estd::log("{}{:7}{} [{:4}:{:4}] {:50}: {}",
-          color, name, estd::colors::reset(),
-          output.line, output.column,
-          output.file.c_str(),
-          output.message.c_str());
-      }
-    }
-
-    estd::log("\n{}Starting Linking{}:", estd::colors::yellow(), estd::colors::reset());
 
     // Linking.
+    estd::log("\n{}Starting Linking{}:", estd::colors::yellow(), estd::colors::reset());
     link(linkers, project);
 
     cache.update_cache(project);
@@ -108,6 +88,13 @@ public:
     {
       assemble_commands_database(compilers, project);
     }
+
+    building::output::printer printer;
+    printer
+      .set_ordering(building::output::errors_last)
+      .set_sources(building::output::all)
+      .set_method(building::output::minimal)
+      .print(compilation_output);
   }
 
 protected:

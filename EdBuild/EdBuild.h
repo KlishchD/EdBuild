@@ -45,10 +45,10 @@
 
 enum class error_types
 {
-  error,
-  warning,
-  note,
-  unknown
+  error = (1 << 0),
+  warning = (1 << 1),
+  note = (1 << 2),
+  unknown = (1 << 3)
 };
 
 enum class execution_policy
