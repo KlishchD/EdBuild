@@ -22,7 +22,7 @@ struct option_description
 
 struct define_description
 {
-  std::string key;
+  std::string name;
   std::string value;
 
   uint32_t get_hash() const;
