@@ -11,7 +11,8 @@ class filter_status
     builder_was_updated,
     compilable_was_updated,
     project_hash_mismatch,
-    subproject_hash_mismatch
+    subproject_hash_mismatch,
+    forced_rebuild
   };
 public:
   filter_status();
@@ -28,6 +29,7 @@ public:
     case compilable_was_updated: return "Compilable file itself was updated.";
     case project_hash_mismatch: return "Project has different hash.";
     case subproject_hash_mismatch: return "Subproject has different hash.";
+    case forced_rebuild: return "Rebuild was forced.";
     default:
       return "None";
     }
@@ -63,6 +65,7 @@ public:
   inline void set_compilable_was_updated() { status = compilable_was_updated; }
   inline void set_project_hash_mismatch() { status = project_hash_mismatch; }
   inline void set_subproject_hash_mismatch() { status = subproject_hash_mismatch; }
+  inline void set_forced_rebuild() { status = forced_rebuild; }
 private:
   uint16_t status;
 };

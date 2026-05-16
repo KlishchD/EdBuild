@@ -27,6 +27,8 @@ public:
 
     const platform* platform = nullptr;
     const target* target = nullptr;
+
+    bool forced_rebuild = false;
   };
 
   builder(const configuration& config)
@@ -314,7 +316,11 @@ protected:
     const auto builder_update_time = std::filesystem::last_write_time(builder_path);
     const bool builder_was_updated = cache.is_build_outdated(builder_update_time);
 
-    if (builder_was_updated)
+    if (config.forced_rebuild)
+    {
+      project.status.set_forced_rebuild();
+    }
+    else if (builder_was_updated)
     {
       project.status.set_builder_was_updated();
     }

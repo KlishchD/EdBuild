@@ -78,41 +78,54 @@ int32_t main(int32_t count, const char** arguments)
   builder::configuration configuration{ tools };
 
   estd::console::console console;
-  console.add_parameter<path_parameter>("-Project", &configuration.project_path)
+  console
+    .add_parameter<path_parameter>("-Project", &configuration.project_path)
     .set_help("Sets a path to be perpended to all the relative project paths.")
     .set_mandatory(true)
     .set_directory(true);
 
-  console.add_parameter<path_parameter>("-Intermediate", &configuration.intermediate_path)
+  console
+    .add_parameter<path_parameter>("-Intermediate", &configuration.intermediate_path)
     .set_help("Sets a path to the directory that will hold all the temporary intermediate data.")
     .set_mandatory(true)
     .set_directory(true);
 
-  console.add_parameter<path_parameter>("-Builds", &configuration.builds_path)
+  console
+    .add_parameter<path_parameter>("-Builds", &configuration.builds_path)
     .set_help("Sets a path to the directory that builds will be composed at.")
     .set_mandatory(true)
     .set_directory(true);
 
-  console.add_parameter<unsigned_integer_parameter>("-Threads", &configuration.threads)
+  console
+    .add_parameter<unsigned_integer_parameter>("-Threads", &configuration.threads)
     .set_help("Sets a maximum allowed number of threads to be used for building process.")
     .set_mandatory(true)
     .set_range(1, 32);
 
-  console.add_parameter<bool_parameter>("-IgnoreBuilderUpdate", &configuration.ignore_builder_updates)
+  console
+    .add_parameter<bool_parameter>("-IgnoreBuilderUpdate", &configuration.ignore_builder_updates)
     .set_help("Disables build invalidation from the builder update check.");
 
-  console.add_parameter<bool_parameter>("-GenerateCompilationDatabase", &configuration.generate_compilation_database)
+  console
+    .add_parameter<bool_parameter>("-GenerateCompilationDatabase", &configuration.generate_compilation_database)
     .set_help("Generates a compilation commands database after builds are generated.");
 
   char platform = '-';
-  console.add_parameter<marker_parameter>("-Platform", &platform)
+  console
+    .add_parameter<marker_parameter>("-Platform", &platform)
     .set_help("Sets a marker for a platform to compile the project for.")
-    .set_madatory(true);
+    .set_mandatory(true);
 
   char target = '-';
-  console.add_parameter<marker_parameter>("-Target", &target)
+  console
+    .add_parameter<marker_parameter>("-Target", &target)
     .set_help("Sets a marker for a target to compile.")
-    .set_madatory(true);
+    .set_mandatory(true);
+
+  console
+    .add_parameter<bool_parameter>("-ForceRebuild", &configuration.forced_rebuild)
+    .set_help("Forces the builder to rebuild the whole project regardless of the cache.");
+
 
   console.parse(count, arguments);
   console.verify_mandatory();
