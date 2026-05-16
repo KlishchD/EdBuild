@@ -175,7 +175,7 @@ int32_t main(int32_t count, const char** arguments)
   catch (const std::exception& error)
   {
     estd::log(error.what());
-    return 1;
+    throw error;
   }
 
   builder_memory_report().deactivate();
@@ -190,7 +190,7 @@ int32_t main(int32_t count, const char** arguments)
   catch (const std::exception& error)
   {
     estd::log(error.what());
-    return 1;
+    throw error;
   }
 
   return 0;
