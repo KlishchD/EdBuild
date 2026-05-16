@@ -9,7 +9,8 @@ enum class builder_options : int8_t
   disable_warnings,
   generate_debug_information,
   generate_symbols_database,
-  symbols_database_source
+  symbols_database_source,
+  no_return_error
 };
 
 struct option_description

@@ -7,7 +7,7 @@ struct build_configuration
   name_string name;
   estd::path output_path;
 
-  subproject_configuration* subproject;
+  const subproject_configuration* subproject;
   options_list options;
   defines_list defines;
 };

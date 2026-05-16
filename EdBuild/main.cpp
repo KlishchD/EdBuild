@@ -4,9 +4,14 @@
 #include "platforms_registry.h"
 #include "targets_registry.h"
 
+#include "configurations/modifiers.h"
+#include "configurations/project.h"
+#include "configurations/build.h"
+
+#include "instructions/loader.h"
+#include "instructions/parser.h"
+
 #include "builder.h"
-#include "readers/json_reader.h"
-#include "parsers/input_parser.h"
 
 #include "implementations/compilers/clang_translator.h"
 #include "implementations/linkers/lld_link_translator.h"
@@ -141,29 +146,31 @@ int32_t main(int32_t count, const char** arguments)
 
   try
   {
-    estd::path instructions_path;
-    instructions_path
+    estd::path path;
+    path
       .append(configuration.project_path)
       .append("instructions.json");
 
-    estd::json instructions_source = estd::read_json(instructions_path);
-    json_instructions_reader reader{ instructions_source };
-    
-    builder_input_parser parser{ *configuration.platform, *configuration.target};
-    parser.register_option_parser([](const std::string& name) { return name == "C++" ? builder_options::language_standard : static_cast<builder_options>(-1); });
-    parser.register_option_parser([](const std::string& name) { return name == "DisableWarnings" ? builder_options::disable_warnings : static_cast<builder_options>(-1); });
-    parser.register_option_parser([](const std::string& name) { return name == "GenerateDebugInformation" ? builder_options::generate_debug_information : static_cast<builder_options>(-1); });
-    parser.register_option_parser([](const std::string& name) { return name == "GenerateSymbolsDatabase" ? builder_options::generate_symbols_database : static_cast<builder_options>(-1); });
+    instructions::parser_inputs inputs;
+    inputs.source = instructions::load(path);
+    inputs.project_path = configuration.project_path;
+    inputs.active_platform = configuration.platform;
+    inputs.active_target = configuration.target;
+    inputs.option_parsers.push_back([](const std::string& name) { return name == "C++" ? builder_options::language_standard : static_cast<builder_options>(-1); });
+    inputs.option_parsers.push_back([](const std::string& name) { return name == "DisableWarnings" ? builder_options::disable_warnings : static_cast<builder_options>(-1); });
+    inputs.option_parsers.push_back([](const std::string& name) { return name == "GenerateDebugInformation" ? builder_options::generate_debug_information : static_cast<builder_options>(-1); });
+    inputs.option_parsers.push_back([](const std::string& name) { return name == "GenerateSymbolsDatabase" ? builder_options::generate_symbols_database : static_cast<builder_options>(-1); });
+    inputs.option_parsers.push_back([](const std::string& name) { return name == "NoReturnError" ? builder_options::no_return_error : static_cast<builder_options>(-1); });
 
-    instructions_description instructions = parser.parse(configuration.project_path, &reader);
+    instructions::description description = instructions::parse(inputs);
 
-    estd::log("Option modifiers: {}.", instructions.modifiers.options.size());
-    estd::log("Define modifiers: {}.", instructions.modifiers.defines.size());
-    estd::log("Subprojects: {}.", instructions.project.subprojects.size());
-    estd::log("Builds: {}.", instructions.builds.size());
+    estd::log("Option modifiers: {}.", description.modifiers.options.size());
+    estd::log("Define modifiers: {}.", description.modifiers.defines.size());
+    estd::log("Subprojects: {}.", description.project.subprojects.size());
+    estd::log("Builds: {}.", description.builds.size());
 
     builder instance{ configuration };
-    instance.build(instructions);
+    instance.build(description);
   }
   catch (const std::exception& error)
   {

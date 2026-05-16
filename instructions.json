@@ -1,5 +1,25 @@
 {
   "Name": "EdBuild",
+  "Includes": [
+    "dependencies\\ESTD\\instructions.json"
+  ],
+  "Modifiers": [
+    {
+      "Name": "Test",
+      "Options": [
+        {
+          "Name": "C++",
+          "Value": "20"
+        }
+      ],
+      "Defines": [
+        {
+          "Name": "TESTIK",
+          "Value": "TRUEISH"
+        }
+      ]
+    }
+  ],
   "Globals": {
     "Options": [
       {
@@ -22,11 +42,6 @@
     ]
   },
   "Projects": [
-    {
-      "Name": "ESTD",
-      "Sources": [ "Dependencies\\ESTD\\estd" ],
-      "Includes": [ "Dependencies\\ESTD\\Dependencies\\json\\include" ]
-    },
     {
       "Name": "EdBuild",
       "Sources": [ "EdBuild" ],

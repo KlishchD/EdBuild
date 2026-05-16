@@ -37,10 +37,10 @@ public:
   {
   }
 
-  void build(instructions_description& instructions)
+  void build(instructions::description& description)
   {
-    project_configuration& project = instructions.project;
-    builds_configurations& builds = instructions.builds;
+    project_configuration& project = description.project;
+    builds_configurations& builds = description.builds;
 
     for (auto& subproject : project.subprojects)
     {
