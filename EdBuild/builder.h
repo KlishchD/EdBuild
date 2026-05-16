@@ -59,7 +59,7 @@ public:
 
     // Data is parsed, setting up and optimizing subproject.
     create_artifacts(compilers, linkers, project);
-    organize_dependencies(project);
+    organize_dependencies(project, builds);
 
     // Project is optimized, setting up orchestrators.
     orchestrators_preparation(compilers, linkers);
@@ -115,18 +115,20 @@ protected:
     }
   }
 
-  void organize_dependencies(project_configuration& project)
+  void organize_dependencies(project_configuration& project, builds_configurations& builds)
   {
     estd::log("\n{}Distributing dependencies.{}", estd::colors::yellow(), estd::colors::reset());
 
+    auto& subprojects = project.subprojects;
+
     // Set up graph.
-    const std::size_t subprojects_count = project.subprojects.size();
+    const std::size_t subprojects_count = subprojects.size();
     std::vector<std::size_t> supplies(subprojects_count, 0);
     std::queue<std::size_t> distributors;
 
     for (std::size_t subproject_index{ 0 }; subproject_index < subprojects_count; ++subproject_index)
     {
-      auto& subproject = project.subprojects[subproject_index];
+      auto& subproject = subprojects[subproject_index];
       subproject.original_rank = subproject_index;
       subproject.rank = 0;
 
@@ -140,7 +142,7 @@ protected:
       const std::size_t subproject_index = distributors.front();
       distributors.pop();
 
-      const auto& distributor = project.subprojects[subproject_index];
+      const auto& distributor = subprojects[subproject_index];
       const auto& distributor_includes = distributor.includes;
       const auto& distributor_dependencies = distributor.artifact_dependencies;
 
@@ -149,7 +151,7 @@ protected:
       #pragma message("Redundant copy.")
       for (const std::size_t dependant_index : distributor.dependants)
       {
-        auto& dependant = project.subprojects[dependant_index];
+        auto& dependant = subprojects[dependant_index];
         auto& dependant_includes = dependant.includes;
         auto& dependant_dependencies = dependant.artifact_dependencies;
 
@@ -170,7 +172,7 @@ protected:
     }
 
     // Clean up dependencies.
-    for (auto& subproject : project.subprojects)
+    for (auto& subproject : subprojects)
     {
       auto& includes = subproject.includes;
       std::sort(includes.begin(), includes.end());
@@ -196,13 +198,32 @@ protected:
 
     // Reorder to help orchestrators.
     #pragma message("Linking logic optimization possible, pass dependencies and rank the configuration.")
-    std::sort(project.subprojects.begin(), project.subprojects.end(),
+    std::sort(subprojects.begin(), subprojects.end(),
       [](const subproject_configuration& left, const subproject_configuration& right)
         { return left.rank < right.rank; });
 
+    constexpr std::size_t max_subproejcts_size = 128;
+    std::array<std::size_t, max_subproejcts_size> subproject_remap;
+
+    estd::assert_condition(subprojects.size() <= max_subproejcts_size, "Exceeding supported amount of projects, can not organize dependencies.");
+
+    for (std::size_t index{ 0 }; index < subprojects_count; ++index)
+    {
+      const auto original_index = subprojects[index].original_rank;
+      subproject_remap[original_index] = index;
+    }
+
+    const auto* subprojects_begin = &subprojects[0];
+    for (auto& build : builds)
+    {
+      const auto original_index = static_cast<std::size_t>(build.subproject - subprojects_begin);
+      const auto remapped_index = subproject_remap[original_index];
+      build.subproject = &subprojects[remapped_index];
+    }
+
     // Log state.
     estd::log("\n{}Reordered subprojects{}: ", estd::colors::yellow(), estd::colors::reset());
-    for (const auto& subproject : project.subprojects)
+    for (const auto& subproject : subprojects)
     {
       estd::log("{}{}{} was {} and became {} with {} dependencies and {} includes.",
         estd::colors::green(),
@@ -213,7 +234,7 @@ protected:
     }
 
     estd::log("\n{}Dependencies{}: ", estd::colors::yellow(), estd::colors::reset());
-    for (const auto& subproject : project.subprojects)
+    for (const auto& subproject : subprojects)
     {
       const char* description = subproject.artifact_dependencies.size() ? "" : "None.";
       estd::log("{}{}{}: {}", estd::colors::green(), subproject.name, estd::colors::reset(), description);
